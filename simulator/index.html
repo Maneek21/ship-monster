@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Monster Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Pixelify+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root {
+  /* layout: the page is the red handheld. Its screen shows the phone, its keys drive shipping and time,
+     and a paper leaflet underneath holds the log and the graveyard. One visual world, single theme. */
+  --shell: #d5352e;
+  --shell-deep: #a3231d;
+  --bezel: #26252b;
+  --key: #161519;
+  --key-top: #37353d;
+  --print: #fff3e6;
+  --lcd: #c7d4b4;
+  --lcd-ink: #232d1b;
+  --leaflet: #fbf6ea;
+  --ink: #231a2e;
+  --ink-soft: #655b72;
+  --ok: #23a45f;
+  --warn: #e08a00;
+  --bad: #e5384b;
+  --monster: #8a4dff;
+  --display: "Pixelify Sans", "Courier New", monospace;
+  --body: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background-color: var(--shell);
+  background-image: radial-gradient(rgba(0, 0, 0, .11) 1px, transparent 1.3px);
+  background-size: 5px 5px;
+  color: var(--print);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, .app:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; }
+
+.unit {
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 20px 16px 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+@media (min-width: 900px) {
+  .unit { max-width: 920px; display: grid; grid-template-columns: 398px 1fr; column-gap: 40px; row-gap: 18px; align-items: start; }
+  .brand { grid-column: 1 / -1; }
+  .bezel { grid-row: 2 / span 2; }
+}
+
+/* brand, printed on the shell */
+.brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 0 var(--shell-deep);
+}
+.brand p { margin: 0; font-size: 12.5px; opacity: .92; max-width: 34ch; }
+
+/* screen */
+.bezel {
+  background: var(--bezel);
+  border-radius: 18px 18px 46px 18px;
+  padding: 14px 14px 22px;
+  box-shadow: 0 4px 0 var(--shell-deep), inset 0 2px 0 rgba(255, 255, 255, .06);
+}
+.screen {
+  --wall-a: #bdeedd; --wall-b: #fff0c4; --card: #fffdf6; --card-ink: #231a2e; --card-soft: #655b72; --on-wall: #231a2e;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  min-height: 512px;
+  background: linear-gradient(165deg, var(--wall-a), var(--wall-b));
+  color: var(--on-wall);
+  transition: background .4s;
+}
+.screen[data-status="egg"] { --wall-a: #d6eaff; --wall-b: #fff2dc; }
+.screen[data-status="hungry"] { --wall-a: #ffd79a; --wall-b: #f6a39c; }
+.screen[data-status="monster"] { --wall-a: #24143f; --wall-b: #5c1f6e; --card: #3c2568; --card-ink: #f6eeff; --card-soft: #c9b6ee; --on-wall: #f6eeff; }
+.screen[data-status="dead"] { --wall-a: #c6c9d2; --wall-b: #ebebf0; }
+
+.statusbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 18px 4px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sb-right { display: flex; gap: 5px; align-items: center; }
+.sb-right i { display: block; background: currentColor; opacity: .8; }
+.sb-right .sig { width: 12px; height: 9px; clip-path: polygon(0 100%, 100% 0, 100% 100%); }
+.sb-right .bat { width: 18px; height: 9px; border-radius: 2px; }
+
+.widget {
+  margin: 8px 14px 10px;
+  padding: 12px 14px 12px 8px;
+  border-radius: 26px;
+  background: var(--card);
+  color: var(--card-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 18px rgba(35, 26, 46, .16);
+  transition: background .4s, color .4s;
+}
+.poke { background: none; border: 0; padding: 0; border-radius: 18px; flex: none; }
+.poke canvas { width: 104px; height: 104px; }
+.w-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.w-name { font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1.1; }
+.pill {
+  align-self: flex-start;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; color: #fff; background: var(--ok);
+}
+.pill[data-kind="egg"] { background: #4c86d9; }
+.pill[data-kind="hungry"] { background: var(--warn); }
+.pill[data-kind="sick"] { background: #6f9a2b; }
+.pill[data-kind="monster"] { background: var(--monster); }
+.pill[data-kind="dead"] { background: #6d7280; }
+.belly { height: 10px; border-radius: 999px; background: rgba(120, 110, 140, .25); overflow: hidden; }
+.belly-fill { display: block; height: 100%; width: 100%; border-radius: 999px; background: var(--ok); transition: width .35s, background .35s; }
+.belly-fill[data-level="mid"] { background: var(--warn); }
+.belly-fill[data-level="low"] { background: var(--bad); }
+.w-meta { font-size: 12.5px; color: var(--card-soft); }
+.hatch {
+  align-self: flex-start; border: 0; border-radius: 999px; padding: 8px 14px; min-height: 40px;
+  background: var(--ink); color: #fff; font-family: var(--display); font-size: 15px;
+}
+
+.apps { padding: 2px 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+.app-cap { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .72; margin: 0 4px 6px; }
+.app-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.app { background: none; border: 0; padding: 4px 0; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.icon { position: relative; width: 54px; height: 54px; border-radius: 17px; display: grid; place-items: center; box-shadow: 0 3px 8px rgba(35, 26, 46, .18); transition: filter .3s; }
+.icon svg { width: 30px; height: 30px; fill: #fff; }
+.app-name { font-size: 11.5px; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app[data-locked="true"] .icon { filter: grayscale(1) brightness(.55); }
+.app[data-locked="true"] .icon::after {
+  content: ""; position: absolute; right: -5px; top: -5px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--monster) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath fill='%23fff' d='M6.5 9V7.2a3.5 3.5 0 0 1 7 0V9h.8v5.6H5.7V9zm1.6 0h3.8V7.2a1.9 1.9 0 0 0-3.8 0z'/%3E%3C/svg%3E") center / 20px no-repeat;
+  filter: none; box-shadow: 0 0 0 2px #24143f;
+}
+.app[data-locked="true"] .app-name { opacity: .6; }
+
+.toast {
+  position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3;
+  background: rgba(22, 17, 30, .94); color: #fff; font-size: 13px; padding: 10px 13px; border-radius: 13px;
+  opacity: 0; transform: translateY(8px); transition: opacity .2s, transform .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: none; }
+
+.lock {
+  position: absolute; inset: 0; z-index: 2;
+  background: radial-gradient(120% 80% at 50% 30%, #5a2390, #1b0f33 70%);
+  color: #f6eeff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 22px 22px 26px; text-align: center;
+}
+.lock[hidden] { display: none; }
+.lock canvas { width: 176px; height: 176px; }
+.lock h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1.05; letter-spacing: .03em; text-wrap: balance; }
+.lock p { margin: 0; font-size: 14px; max-width: 30ch; }
+.lock .count { font-family: var(--display); font-size: 15px; color: #ffcf6b; font-variant-numeric: tabular-nums; }
+.lock-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; margin-top: 6px; }
+.lock-actions button { border-radius: 999px; min-height: 46px; padding: 10px 16px; font-family: var(--display); font-size: 16px; }
+.btn-home { background: #fff; color: #231a2e; border: 0; }
+.btn-mercy { background: transparent; color: #ff9aa5; border: 2px solid #ff6b7a; }
+.btn-mercy[data-armed="true"] { background: #e5384b; color: #fff; border-color: #e5384b; }
+.lock small { font-size: 12px; opacity: .78; max-width: 32ch; }
+
+/* deck */
+.deck { display: flex; flex-direction: column; gap: 16px; }
+.lcd {
+  background: var(--lcd); color: var(--lcd-ink); font-family: var(--display);
+  border-radius: 9px; padding: 10px 13px 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, .28), 0 2px 0 var(--shell-deep);
+  font-variant-numeric: tabular-nums;
+}
+.lcd-k { display: block; font-size: 11px; letter-spacing: .1em; opacity: .7; }
+.lcd-v { display: block; font-size: 19px; font-weight: 600; line-height: 1.15; }
+.lcd-next { grid-column: 1 / -1; font-size: 16px; padding-top: 6px; margin-top: 3px; border-top: 2px dotted rgba(35, 45, 27, .35); }
+
+.track-wrap { display: flex; flex-direction: column; gap: 5px; }
+.track { position: relative; height: 14px; border-radius: 999px; display: grid; grid-template-columns: 20% 20% 60%; overflow: visible; box-shadow: 0 2px 0 var(--shell-deep); }
+.track span { display: block; }
+.track .seg-ok { background: #4fd08a; border-radius: 999px 0 0 999px; }
+.track .seg-warn { background: #ffc24d; }
+.track .seg-mon { background: #a577ff; border-radius: 0 999px 999px 0; }
+.needle { position: absolute; top: -5px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; background: #fff; box-shadow: 0 0 0 2px var(--key); transition: left .35s; }
+.needle[hidden] { display: none; }
+.track-labels { display: grid; grid-template-columns: 20% 20% 1fr auto; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.track-labels span:last-child { text-align: right; }
+
+.keys { display: grid; gap: 14px; }
+.keygroup h2 { margin: 0 0 8px; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 9px; }
+.key {
+  border: 0; border-radius: 999px; padding: 11px 17px; min-height: 46px;
+  background: linear-gradient(var(--key-top), var(--key)); color: var(--print);
+  font-family: var(--display); font-size: 16px; line-height: 1.1;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .13);
+}
+.key:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .13); }
+.key:disabled { opacity: .42; cursor: default; }
+.key[aria-pressed="true"] { background: linear-gradient(#2c7a4f, #1c5a39); }
+.key.quiet { background: transparent; box-shadow: inset 0 0 0 2px rgba(255, 243, 230, .6); }
+
+/* leaflet */
+.leaflet { background: var(--leaflet); color: var(--ink); border-radius: 5px; padding: 18px 18px 20px; box-shadow: 0 3px 0 var(--shell-deep); display: flex; flex-direction: column; gap: 18px; }
+.leaflet h2 { margin: 0 0 8px; font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .02em; }
+.leaflet p { margin: 0; }
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.log li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; }
+.log time { color: var(--ink-soft); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
+.graves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.grave { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: center; border: 1.5px solid rgba(35, 26, 46, .16); border-radius: 12px; padding: 10px 12px; }
+.grave canvas { width: 56px; height: 56px; }
+.grave p { font-size: 13.5px; }
+.copy { margin-top: 6px; border: 0; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12.5px; font-weight: 600; padding: 7px 12px; min-height: 34px; }
+.empty { font-size: 13.5px; color: var(--ink-soft); }
+.rules { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; font-size: 13.5px; }
+.rules dt { font-weight: 600; }
+.rules dd { margin: 0; color: var(--ink-soft); }
+.fine { font-size: 12.5px; color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+</style>
+</head>
+<body>
+<main class="unit">
+  <header class="brand">
+    <h1>Ship Monster</h1>
+    <p>Simulator v0.1. Commits here are pretend and nothing touches your real phone.</p>
+  </header>
+
+  <section class="bezel" aria-label="Simulated Android home screen">
+    <div class="screen" id="screen" data-status="happy">
+      <div class="statusbar">
+        <span id="sbClock">14:00</span>
+        <span class="sb-right" aria-hidden="true"><i class="sig"></i><i class="bat"></i></span>
+      </div>
+
+      <div class="widget" id="widget">
+        <button class="poke" id="poke" type="button" aria-label="Poke the pet">
+          <canvas id="petCanvas" width="16" height="16"></canvas>
+        </button>
+        <div class="w-info">
+          <span class="w-name" id="wName">Pip the Sprout</span>
+          <span class="pill" id="wPill" data-kind="happy">Happy</span>
+          <span class="belly" id="wBellyWrap" role="img" aria-label="Belly"><span class="belly-fill" id="wBelly"></span></span>
+          <span class="w-meta" id="wMeta">3-day streak, fed 5h ago</span>
+          <button class="hatch" id="hatch" type="button" hidden>Hatch a new egg</button>
+        </div>
+      </div>
+
+      <div class="apps" id="apps"></div>
+
+      <div class="lock" id="lock" hidden>
+        <canvas id="lockCanvas" width="16" height="16"></canvas>
+        <h2>Feed me commits</h2>
+        <p id="lockText">Scrolly is closed.</p>
+        <span class="count" id="lockCount">Dies in 2d 3h</span>
+        <div class="lock-actions">
+          <button class="btn-home" id="lockHome" type="button">Back to home</button>
+          <button class="btn-mercy" id="lockMercy" type="button">Mercy unlock</button>
+        </div>
+        <small id="lockFine">Mercy unlock opens your apps now and kills the pet.</small>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="deck" aria-label="Simulator controls">
+    <div class="lcd">
+      <div><span class="lcd-k">SIM TIME</span><span class="lcd-v" id="lcdTime">DAY 3 14:00</span></div>
+      <div><span class="lcd-k">LAST SHIP</span><span class="lcd-v" id="lcdFed">5h ago</span></div>
+      <div class="lcd-next" id="lcdNext">Hungry in 19h</div>
+    </div>
+
+    <div class="track-wrap">
+      <div class="track" role="img" id="track" aria-label="Hours since last ship">
+        <span class="seg-ok"></span><span class="seg-warn"></span><span class="seg-mon"></span>
+        <i class="needle" id="needle"></i>
+      </div>
+      <div class="track-labels" aria-hidden="true"><span>Happy</span><span>Hungry</span><span>Monster</span><span>Dead</span></div>
+    </div>
+
+    <div class="keys">
+      <div class="keygroup">
+        <h2>Ship</h2>
+        <div class="keyrow">
+          <button class="key" id="kCommit" type="button">Push commit</button>
+          <button class="key" id="kMerge" type="button">Merge PR</button>
+          <button class="key" id="kCI" type="button" aria-pressed="false">Break CI</button>
+        </div>
+      </div>
+      <div class="keygroup">
+        <h2>Time</h2>
+        <div class="keyrow">
+          <button class="key" id="kH1" type="button">+1 hour</button>
+          <button class="key" id="kH6" type="button">+6 hours</button>
+          <button class="key" id="kD1" type="button">+1 day</button>
+          <button class="key" id="kRun" type="button" aria-pressed="false">Run clock</button>
+          <button class="key quiet" id="kReset" type="button">Reset demo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="leaflet">
+    <div>
+      <h2>What happened</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+    <div>
+      <h2>Graveyard</h2>
+      <ul class="graves" id="graves"></ul>
+      <p class="empty" id="noGraves">Nobody has died yet. Skip five days without shipping and that changes.</p>
+    </div>
+    <div>
+      <h2>Rules in this build</h2>
+      <dl class="rules">
+        <dt>Hungry</dt><dd>24 hours without a ship. A warning, nothing locks.</dd>
+        <dt>Monster</dt><dd>48 hours. The four distraction apps lock until you ship.</dd>
+        <dt>Dead</dt><dd>72 hours as a monster, or the moment you mercy unlock.</dd>
+        <dt>Grows</dt><dd>Sprout, then Leafling at a 7-day streak, then Bloom at 30.</dd>
+      </dl>
+    </div>
+    <p class="fine">Run clock moves one hour per second. This hosted page cannot reach GitHub, so commits are buttons for now.</p>
+  </section>
+</main>
+
+<script>
+/* Ship Monster engine: pure state logic, no DOM. Time is simulated milliseconds. */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.ShipPetEngine = api;
+})(typeof self !== 'undefined' ? self : this, function () {
+  var H = 3600e3, D = 24 * H;
+  var RULES = { hungryAt: 24, monsterAt: 48, monsterHours: 72, leaflingStreak: 7, bloomStreak: 30 };
+  var DEAD_AT = RULES.monsterAt + RULES.monsterHours; // hours since last ship
+  var NAMES = ['Pip', 'Mochi', 'Byte', 'Nugget', 'Dot', 'Fig', 'Zip', 'Pebble'];
+  var FORMS = ['egg', 'sprout', 'leafling', 'bloom'];
+
+  function newPet(now, n) {
+    return {
+      name: NAMES[n % NAMES.length], bornAt: now, hatchedAt: null, lastFedAt: null,
+      streak: 0, bestStreak: 0, lastShipDay: null, form: 'egg',
+      commits: 0, merges: 0, ciFailing: false, dead: null
+    };
+  }
+
+  function createState(now) {
+    return { now: now || 0, petCount: 1, pet: newPet(now || 0, 0), graveyard: [], log: [] };
+  }
+
+  function hoursSinceFed(s) {
+    var p = s.pet;
+    if (p.lastFedAt == null) return 0;
+    var end = p.dead ? p.dead.at : s.now;
+    return (end - p.lastFedAt) / H;
+  }
+
+  function status(s) {
+    var p = s.pet;
+    if (p.dead) return 'dead';
+    if (p.hatchedAt == null) return 'egg';
+    var h = hoursSinceFed(s);
+    if (h >= RULES.monsterAt) return 'monster';
+    if (h >= RULES.hungryAt) return 'hungry';
+    return 'happy';
+  }
+
+  /* 1 = just fed, 0 = monster threshold reached */
+  function fullness(s) {
+    var st = status(s);
+    if (st === 'egg') return 1;
+    if (st === 'dead') return 0;
+    return Math.max(0, Math.min(1, 1 - hoursSinceFed(s) / RULES.monsterAt));
+  }
+
+  function hoursToNext(s) {
+    var st = status(s), h = hoursSinceFed(s);
+    if (st === 'happy') return RULES.hungryAt - h;
+    if (st === 'hungry') return RULES.monsterAt - h;
+    if (st === 'monster') return DEAD_AT - h;
+    return null;
+  }
+
+  function formFor(p) {
+    var target = p.streak >= RULES.bloomStreak ? 'bloom' : p.streak >= RULES.leaflingStreak ? 'leafling' : 'sprout';
+    return FORMS.indexOf(target) > FORMS.indexOf(p.form) ? target : p.form;
+  }
+
+  function die(s, cause, at) {
+    var p = s.pet;
+    p.dead = { at: at, cause: cause };
+    var start = p.hatchedAt == null ? p.bornAt : p.hatchedAt;
+    s.graveyard.unshift({
+      name: p.name, form: p.form, cause: cause, diedAt: at,
+      days: Math.max(0, Math.floor((at - start) / D)),
+      bestStreak: p.bestStreak, ships: p.commits + p.merges
+    });
+  }
+
+  function ship(s, kind) {
+    var p = s.pet;
+    if (p.dead) return { ok: false, reason: 'dead' };
+    var was = status(s);
+    var hatched = false;
+    if (p.hatchedAt == null) { p.hatchedAt = s.now; hatched = true; }
+    var day = Math.floor(s.now / D);
+    if (p.lastShipDay == null || day > p.lastShipDay + 1) p.streak = 1;
+    else if (day === p.lastShipDay + 1) p.streak += 1;
+    p.lastShipDay = day;
+    if (p.streak > p.bestStreak) p.bestStreak = p.streak;
+    p.lastFedAt = s.now;
+    if (kind === 'merge') p.merges += 1; else p.commits += 1;
+    var before = p.form;
+    p.form = formFor(p);
+    return { ok: true, was: was, hatched: hatched, evolved: before !== p.form && !hatched ? p.form : null, kind: kind === 'merge' ? 'merge' : 'commit' };
+  }
+
+  function advance(s, hours) {
+    var before = status(s);
+    s.now += hours * H;
+    var p = s.pet;
+    if (!p.dead && p.hatchedAt != null && hoursSinceFed(s) >= DEAD_AT) {
+      die(s, 'starved', p.lastFedAt + DEAD_AT * H);
+    }
+    return { before: before, after: status(s) };
+  }
+
+  function mercy(s) {
+    if (status(s) !== 'monster') return { ok: false };
+    die(s, 'mercy', s.now);
+    return { ok: true };
+  }
+
+  function hatchNew(s) {
+    if (!s.pet.dead) return { ok: false };
+    s.pet = newPet(s.now, s.petCount);
+    s.petCount += 1;
+    return { ok: true };
+  }
+
+  function setCI(s, failing) {
+    if (s.pet.dead) return { ok: false };
+    s.pet.ciFailing = !!failing;
+    return { ok: true };
+  }
+
+  function epitaph(g) {
+    var lived = g.days < 1 ? 'Lived less than a day.' : 'Lived ' + g.days + (g.days === 1 ? ' day.' : ' days.');
+    var how = g.cause === 'mercy'
+      ? 'Mercy-unlocked so its owner could scroll.'
+      : 'Starved after ' + RULES.monsterHours + ' hours as a monster.';
+    return 'R.I.P. ' + g.name + '. ' + lived + ' ' + how;
+  }
+
+  return {
+    H: H, D: D, RULES: RULES, DEAD_AT: DEAD_AT, FORMS: FORMS,
+    createState: createState, status: status, hoursSinceFed: hoursSinceFed, fullness: fullness,
+    hoursToNext: hoursToNext, ship: ship, advance: advance, mercy: mercy, hatchNew: hatchNew,
+    setCI: setCI, epitaph: epitaph
+  };
+});
+
+</script>
+<script>
+/* Ship Monster sprites: 16x16 pixel grids drawn to a 16x16 canvas, scaled up in CSS. */
+(function (root) {
+  var PAL = {
+    o: '#2a1f3d', y: '#ffd447', Y: '#f0a31f', p: '#ff8fa3', g: '#5fd07a', G: '#2f9550',
+    f: '#ff7eb6', c: '#fff0a0', b: '#6ec3ff', w: '#fffaf0',
+    e: '#fff3d6', E: '#ecd3a0',
+    m: '#9a5cff', M: '#6a35d6', r: '#ff3b4e', h: '#ffe2a0', s: '#d7dbe3',
+    t: '#b4bac6', T: '#7b8394'
+  };
+  var SICK = { y: '#cfe59a', Y: '#9cc266' };
+
+  var SPROUT = [
+    '................',
+    '................',
+    '........gG......',
+    '.......gg.......',
+    '.......G........',
+    '....oooooooo....',
+    '...oyyyyyyyyo...',
+    '..oyyyyyyyyyyo..',
+    '..oyyyyyyyyyyo..',
+    '..oyyyyyyyyyyo..',
+    '..oyyyyyyyyyyo..',
+    '..oYyyyyyyyyYo..',
+    '...oYYYYYYYYo...',
+    '....oooooooo....',
+    '....oo....oo....',
+    '................'
+  ];
+  var LEAFLING = [
+    '.....gG..Gg.....',
+    '......gGGg......',
+    '.......GG.......',
+    '...oooooooooo...',
+    '..oyyyyyyyyyyo..',
+    '.oyyyyyyyyyyyyo.',
+    '.oyyyyyyyyyyyyo.',
+    '.oyyyyyyyyyyyyo.',
+    '.oyyyyyyyyyyyyo.',
+    'ooyyyyyyyyyyyyoo',
+    '.oyyyyyyyyyyyyo.',
+    '.oYyyyyyyyyyyYo.',
+    '..oYYYYYYYYYYo..',
+    '...oooooooooo...',
+    '...ooo....ooo...',
+    '................'
+  ];
+  var BLOOM = LEAFLING.slice();
+  BLOOM[0] = '......ffff......';
+  BLOOM[1] = '.....ffccff.....';
+  BLOOM[2] = '......fGGf......';
+
+  var EGG = [
+    '................',
+    '................',
+    '......oooo......',
+    '.....oeeeeo.....',
+    '....oeeeeeeo....',
+    '....oeeyeeeo....',
+    '...oeeeeeeeeo...',
+    '...oeeeeeyyeo...',
+    '...oeyeeeyyeo...',
+    '...oeeeeeeeeo...',
+    '...oeeeeeeeeo...',
+    '...oEeeeeeeEo...',
+    '....oEEEEEEo....',
+    '.....oooooo.....',
+    '................',
+    '................'
+  ];
+  var MONSTER = [
+    '..h.......h.....',
+    '..hh.....hh.....',
+    '..ooooooooo.....',
+    '.ommmmmmmmmo....',
+    '.ommmmmmmmmo.s.s',
+    '.omrrmmmrrmo.s.s',
+    '.omrommmormo.sss',
+    '.ommmmmmmmmo..s.',
+    '.owowowowowo..s.',
+    '.ooooooooooomms.',
+    '.oowowowowoo..s.',
+    '.ommmmmmmmmo..s.',
+    '.oMMMMMMMMMo....',
+    '..ooooooooo.....',
+    '..ooo...ooo.....',
+    '................'
+  ];
+  var TOMB = [
+    '................',
+    '...oooooooooo...',
+    '..otttttttttto..',
+    '.otttttttttttto.',
+    '.ottTTTtTtTTTto.',
+    '.ottTtTtTtTtTto.',
+    '.ottTTttTtTTTto.',
+    '.ottTtTtTtTttto.',
+    '.ottTtTtTtTttto.',
+    '.otttttttttttto.',
+    '.otttttttttttto.',
+    '.oTTTTTTTTTTTTo.',
+    '.oooooooooooooo.',
+    'gGggGgGGgGggGgGg',
+    '................',
+    '................'
+  ];
+
+  var BODY = { sprout: SPROUT, leafling: LEAFLING, bloom: BLOOM };
+  var ALL = { sprout: SPROUT, leafling: LEAFLING, bloom: BLOOM, egg: EGG, monster: MONSTER, tomb: TOMB };
+
+  function paint(ctx, grid, pal, dx, dy) {
+    for (var y = 0; y < 16; y++) {
+      var row = grid[y];
+      for (var x = 0; x < 16; x++) {
+        var ch = row.charAt(x);
+        if (ch === '.') continue;
+        ctx.fillStyle = pal[ch] || PAL[ch];
+        ctx.fillRect(x + dx, y + dy, 1, 1);
+      }
+    }
+  }
+
+  function face(ctx, mood, dx, dy, frame) {
+    var ex1 = 5, ex2 = 10, ey = 7, my = 10;
+    function px(x, y, col) { ctx.fillStyle = col; ctx.fillRect(x + dx, y + dy, 1, 1); }
+    var ink = PAL.o;
+    if (mood !== 'sick' && mood !== 'hungry') { px(ex1 - 1, ey + 2, PAL.p); px(ex2 + 1, ey + 2, PAL.p); }
+    if (mood === 'joy') {
+      px(ex1 - 1, ey + 1, ink); px(ex1, ey, ink); px(ex1 + 1, ey + 1, ink);
+      px(ex2 - 1, ey + 1, ink); px(ex2, ey, ink); px(ex2 + 1, ey + 1, ink);
+      px(6, my, ink); px(7, my, ink); px(8, my, ink); px(9, my, ink);
+      px(7, my + 1, PAL.p); px(8, my + 1, PAL.p);
+      if (frame % 2 === 0) { px(1, 3 - dy, PAL.c); px(14, 5 - dy, PAL.c); px(13, 1 - dy, PAL.w); }
+      else { px(2, 1 - dy, PAL.w); px(15, 3 - dy, PAL.c); px(0, 6 - dy, PAL.c); }
+    } else if (mood === 'hungry') {
+      px(ex1 + 1, ey, ink); px(ex1, ey + 1, ink); px(ex1 - 1, ey + 1, ink);
+      px(ex2 - 1, ey, ink); px(ex2, ey + 1, ink); px(ex2 + 1, ey + 1, ink);
+      px(7, my, ink); px(8, my, ink); px(6, my + 1, ink); px(9, my + 1, ink);
+      px(14, 2, PAL.b); px(14, 3, PAL.b);
+    } else if (mood === 'sick') {
+      px(ex1 - 1, ey + 1, ink); px(ex1, ey + 1, ink); px(ex2, ey + 1, ink); px(ex2 + 1, ey + 1, ink);
+      px(6, my, ink); px(7, my + 1, ink); px(8, my, ink); px(9, my + 1, ink);
+    } else {
+      if (mood === 'blink') {
+        px(ex1 - 1, ey + 1, ink); px(ex1, ey + 1, ink); px(ex2, ey + 1, ink); px(ex2 + 1, ey + 1, ink);
+      } else {
+        px(ex1, ey, ink); px(ex1, ey + 1, ink); px(ex2, ey, ink); px(ex2, ey + 1, ink);
+      }
+      px(6, my, ink); px(7, my + 1, ink); px(8, my + 1, ink); px(9, my, ink);
+    }
+  }
+
+  /* o: { kind: 'pet'|'egg'|'monster'|'tomb', form, mood, frame, still } */
+  function draw(ctx, o) {
+    var frame = o.still ? 0 : (o.frame || 0);
+    ctx.clearRect(0, 0, 16, 16);
+    if (o.kind === 'tomb') return paint(ctx, TOMB, PAL, 0, 0);
+    if (o.kind === 'monster') return paint(ctx, MONSTER, PAL, 0, frame % 2);
+    if (o.kind === 'egg') {
+      var w = frame % 4;
+      return paint(ctx, EGG, PAL, w === 1 ? 1 : w === 3 ? -1 : 0, 0);
+    }
+    var dy = frame % 2;
+    var pal = o.mood === 'sick' ? Object.assign({}, PAL, SICK) : PAL;
+    paint(ctx, BODY[o.form] || SPROUT, pal, 0, dy);
+    face(ctx, o.mood || 'happy', 0, dy, frame);
+  }
+
+  var api = { draw: draw, ALL: ALL, PAL: PAL };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.ShipPetSprites = api;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+(function () {
+  var E = self.ShipPetEngine, SP = self.ShipPetSprites;
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = 'shipmonster-sim-v1';
+  var reduce = false;
+  try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+  var FORM_LABEL = { egg: 'Egg', sprout: 'Sprout', leafling: 'Leafling', bloom: 'Bloom' };
+  var G = {
+    feed: '<rect x="5" y="5" width="14" height="4" rx="1"/><rect x="5" y="10.5" width="14" height="4" rx="1"/><rect x="5" y="16" width="14" height="3" rx="1"/>',
+    play: '<path d="M9 6l9.5 6L9 18z"/>',
+    chirp: '<path d="M4.5 5.5h15v9.5h-7.6l-4.2 3.2V15H4.5z"/>',
+    tv: '<rect x="4" y="5.5" width="16" height="10.5" rx="2"/><rect x="8.5" y="17.6" width="7" height="1.8" rx=".9"/>',
+    phone: '<path d="M7.6 4h3l1.2 4-2 1.6c1 2 2.6 3.6 4.6 4.6l1.6-2 4 1.2v3c0 1.4-1 2.3-2.4 2.2C10.9 18 6 13.1 5.4 6.400 5.3 5 6.200 4 7.600 4z"/>',
+    texts: '<path d="M4 5h16v10.500H10.400L6 19v-3.500H4z"/>',
+    pay: '<text x="12" y="17.600" text-anchor="middle" font-size="16" font-weight="700" font-family="system-ui, sans-serif">₹</text>',
+    maps: '<path fill-rule="evenodd" d="M12 3a6 6 0 0 1 6 6c0 4.500-6 11.500-6 11.500S6 13.500 6 9a6 6 0 0 1 6-6zm0 3.600a2.400 2.400 0 1 0 0 4.800 2.400 2.400 0 0 0 0-4.800z"/>',
+    git: '<circle cx="7.500" cy="6" r="2.300"/><circle cx="7.500" cy="18" r="2.300"/><circle cx="16.500" cy="9" r="2.300"/><rect x="6.700" y="7.500" width="1.600" height="9"/><path d="M8.300 15.200c0-2.600 1.800-3.600 4.300-3.600 1.700 0 2.700-.4 3.100-1.500l1.500.5c-.7 2-2.400 2.600-4.600 2.600-1.800 0-2.700.6-2.700 2z"/>',
+    shell: '<path d="M5 7.200l4.800 4.800L5 16.800l1.500 1.500 6.300-6.300-6.300-6.300z"/><rect x="12.800" y="16.300" width="6.700" height="2"/>',
+    agent: '<path d="M12 3l2.100 6.600L20.500 12l-6.400 2.300L12 21l-2.100-6.700L3.500 12l6.400-2.400z"/>',
+    pet: '<rect x="7" y="9" width="2.600" height="5.500" rx="1.300" fill="#2a1f3d"/><rect x="14.400" y="9" width="2.600" height="5.500" rx="1.300" fill="#2a1f3d"/>'
+  };
+  var GROUPS = [
+    { id: 'fun', cap: 'Distractions, lockable', apps: [
+      { name: 'Scrolly', color: '#ff5d8f', glyph: 'feed' }, { name: 'Clipz', color: '#111318', glyph: 'play' },
+      { name: 'Chirp', color: '#2aa7ff', glyph: 'chirp' }, { name: 'Bingebox', color: '#c2242c', glyph: 'tv' } ] },
+    { id: 'need', cap: 'Essentials, never locked', apps: [
+      { name: 'Phone', color: '#23a45f', glyph: 'phone' }, { name: 'Texts', color: '#3b6cf6', glyph: 'texts' },
+      { name: 'Pay', color: '#5b2bbf', glyph: 'pay' }, { name: 'Maps', color: '#e08a00', glyph: 'maps' } ] },
+    { id: 'ship', cap: 'Shipping tools, never locked', apps: [
+      { name: 'Git', color: '#2b2f3a', glyph: 'git' }, { name: 'Shell', color: '#0f766e', glyph: 'shell' },
+      { name: 'Agent', color: '#c2603a', glyph: 'agent' }, { name: 'Monster', color: '#ffd447', glyph: 'pet' } ] }
+  ];
+
+  var S, frame = 0, joyUntil = 0, lockedApp = null, toastTimer = null, runTimer = null, mercyArmed = false, mercyTimer = null;
+  var petCtx = $('petCanvas').getContext('2d'), lockCtx = $('lockCanvas').getContext('2d');
+
+  /* ---------- formatting ---------- */
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function dayOf(t) { return Math.floor(t / E.D) + 1; }
+  function hourOf(t) { return Math.floor((t % E.D) / E.H); }
+  function stamp(t) { return 'Day ' + dayOf(t) + ', ' + pad(hourOf(t)) + ':00'; }
+  function dur(h) {
+    h = Math.max(0, h);
+    if (h < 1) return 'under 1h';
+    if (h < 48) return Math.floor(h) + 'h';
+    var d = Math.floor(h / 24), r = Math.floor(h % 24);
+    return d + 'd' + (r ? ' ' + r + 'h' : '');
+  }
+
+  /* ---------- state ---------- */
+  function addLog(text) { S.log.unshift({ t: S.now, text: text }); if (S.log.length > 30) S.log.length = 30; }
+  function demo() {
+    var s = E.createState(9 * E.H);
+    S = s;
+    E.ship(s, 'commit'); addLog('Pip hatched on its first commit.');
+    E.advance(s, 26); E.ship(s, 'commit'); addLog('Commit pushed. Pip ate.');
+    E.advance(s, 22); E.ship(s, 'merge'); addLog('PR merged. Feast.');
+    E.advance(s, 5);
+    return s;
+  }
+  function valid(d) { return d && typeof d.now === 'number' && d.pet && Array.isArray(d.graveyard) && Array.isArray(d.log); }
+  function load() { try { var d = JSON.parse(localStorage.getItem(KEY)); return valid(d) ? d : null; } catch (e) { return null; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  /* ---------- drawing ---------- */
+  function mood(st) {
+    if (Date.now() < joyUntil) return 'joy';
+    if (st === 'hungry') return 'hungry';
+    if (S.pet.ciFailing) return 'sick';
+    return frame % 9 === 8 ? 'blink' : 'happy';
+  }
+  function drawPet() {
+    var st = E.status(S);
+    var o = st === 'egg' ? { kind: 'egg' } : st === 'dead' ? { kind: 'tomb' } : st === 'monster' ? { kind: 'monster' }
+      : { kind: 'pet', form: S.pet.form, mood: mood(st) };
+    o.frame = frame; o.still = reduce && Date.now() >= joyUntil;
+    SP.draw(petCtx, o);
+    if (lockedApp) SP.draw(lockCtx, { kind: 'monster', frame: frame, still: reduce });
+  }
+
+  /* ---------- toast ---------- */
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+
+  /* ---------- apps ---------- */
+  function buildApps() {
+    var root = $('apps');
+    GROUPS.forEach(function (g) {
+      var wrap = document.createElement('div');
+      var cap = document.createElement('p'); cap.className = 'app-cap'; cap.textContent = g.cap; wrap.appendChild(cap);
+      var row = document.createElement('div'); row.className = 'app-row';
+      g.apps.forEach(function (a) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'app'; b.dataset.group = g.id; b.dataset.name = a.name;
+        var ic = document.createElement('span'); ic.className = 'icon'; ic.style.background = a.color;
+        ic.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + G[a.glyph] + '</svg>';
+        var nm = document.createElement('span'); nm.className = 'app-name'; nm.textContent = a.name;
+        b.appendChild(ic); b.appendChild(nm);
+        b.addEventListener('click', function () { openApp(g.id, a.name); });
+        row.appendChild(b);
+      });
+      wrap.appendChild(row); root.appendChild(wrap);
+    });
+  }
+  function openApp(group, name) {
+    var st = E.status(S), pn = S.pet.name;
+    if (name === 'Monster') return toast('That is this app. The widget above is the whole point.');
+    if (group === 'need') return toast(name + ' always opens. Essentials are never locked.');
+    if (group === 'ship') return toast(name + ' always opens. You need it to feed ' + pn + '.');
+    if (st === 'monster') { lockedApp = name; mercyArmed = false; clearTimeout(toastTimer); $('toast').classList.remove('show'); render(); return; }
+    if (st === 'dead') return toast(name + ' opened. Nobody is guarding it now.');
+    if (st === 'egg') return toast(name + ' opened. The egg cannot stop you yet.');
+    if (st === 'hungry') return toast(name + ' opened. ' + pn + ' watches you scroll, hungry.');
+    toast(name + ' opened. ' + pn + ' is fed, so scroll away.');
+  }
+
+  /* ---------- actions ---------- */
+  function ship(kind) {
+    var name = S.pet.name;
+    var r = E.ship(S, kind);
+    if (!r.ok) return toast(name + ' is dead. Hatch a new egg first.');
+    joyUntil = Date.now() + (kind === 'merge' ? 2800 : 1500);
+    var msg;
+    if (r.hatched) msg = name + ' hatched on its first commit.';
+    else if (r.was === 'monster') msg = (kind === 'merge' ? 'PR merged. ' : 'Commit pushed. ') + name + ' turned back. Apps unlocked.';
+    else if (kind === 'merge') msg = 'PR merged. Feast.';
+    else msg = 'Commit pushed. ' + name + ' ate.';
+    addLog(msg);
+    if (r.evolved) { addLog(name + ' grew into a ' + FORM_LABEL[r.evolved] + ' on a ' + S.pet.streak + '-day streak.'); msg = name + ' grew into a ' + FORM_LABEL[r.evolved] + '.'; }
+    if (lockedApp) { msg = lockedApp + ' is open again. ' + name + ' turned back.'; lockedApp = null; }
+    render(); toast(msg);
+  }
+  function advance(hours) {
+    var name = S.pet.name;
+    var r = E.advance(S, hours);
+    if (r.before !== r.after) {
+      if (r.after === 'hungry') { addLog(name + ' is hungry. 24 hours without a ship.'); toast(name + ' is hungry.'); }
+      else if (r.after === 'monster') { addLog(name + ' turned into a monster. Distraction apps are locked.'); toast(name + ' turned into a monster.'); }
+      else if (r.after === 'dead') { addLog(name + ' starved after 72 hours as a monster.'); toast(name + ' has died.'); lockedApp = null; stopRun(); }
+    }
+    render();
+  }
+  function toggleCI() {
+    var next = !S.pet.ciFailing;
+    if (!E.setCI(S, next).ok) return toast('No pet to make sick.');
+    addLog(next ? 'CI is failing. ' + S.pet.name + ' feels sick.' : 'CI is green again.');
+    render();
+  }
+  function mercy() {
+    var name = S.pet.name;
+    if (!mercyArmed) {
+      mercyArmed = true; render();
+      clearTimeout(mercyTimer);
+      mercyTimer = setTimeout(function () { mercyArmed = false; render(); }, 4000);
+      return;
+    }
+    clearTimeout(mercyTimer); mercyArmed = false;
+    var app = lockedApp;
+    if (E.mercy(S).ok) {
+      addLog('Mercy unlock used. ' + name + ' died so ' + (app || 'the apps') + ' could open.');
+      lockedApp = null; stopRun(); render(); toast((app || 'Apps') + ' unlocked. ' + name + ' is gone.');
+    }
+  }
+  function hatch() {
+    if (E.hatchNew(S).ok) { addLog('A new egg arrived. Its name is ' + S.pet.name + '.'); render(); toast('New egg. Push a commit to hatch it.'); }
+  }
+  function poke() {
+    var st = E.status(S), n = S.pet.name;
+    if (st === 'dead') return toast('Rest in peace, ' + n + '.');
+    if (st === 'egg') return toast('The egg wobbles.');
+    if (st === 'monster') return toast('It bit you.');
+    joyUntil = Date.now() + 900; drawPet(); toast(n + ' wiggles.');
+  }
+  function stopRun() { if (runTimer) { clearInterval(runTimer); runTimer = null; } }
+  function toggleRun() {
+    if (runTimer) stopRun();
+    else if (E.status(S) !== 'dead') runTimer = setInterval(function () { advance(1); }, 1000);
+    render();
+  }
+  function reset() { stopRun(); lockedApp = null; joyUntil = 0; demo(); render(); toast('Back to the demo: Pip, day 3.'); }
+
+  /* ---------- render ---------- */
+  function render() {
+    var st = E.status(S), p = S.pet, h = E.hoursSinceFed(S), full = E.fullness(S);
+    if (st !== 'monster') lockedApp = null;
+    $('screen').dataset.status = st;
+    $('sbClock').textContent = pad(hourOf(S.now)) + ':00';
+
+    $('wName').textContent = st === 'egg' ? p.name + ', still an egg' : st === 'dead' ? 'R.I.P. ' + p.name : p.name + ' the ' + FORM_LABEL[p.form];
+    var kind = st === 'happy' && p.ciFailing ? 'sick' : st;
+    var pill = $('wPill'); pill.dataset.kind = kind;
+    pill.textContent = { egg: 'Egg', happy: 'Happy', sick: 'Sick, CI red', hungry: 'Hungry', monster: 'Monster', dead: 'Dead' }[kind];
+    var belly = $('wBelly');
+    belly.style.width = Math.round(full * 100) + '%';
+    belly.dataset.level = full > 0.5 ? 'high' : full > 0 ? 'mid' : 'low';
+    $('wBellyWrap').hidden = st === 'dead' || st === 'egg';
+    $('wBellyWrap').setAttribute('aria-label', 'Belly ' + Math.round(full * 100) + ' percent full');
+    $('wMeta').textContent = st === 'egg' ? 'Push a commit to hatch it.'
+      : st === 'dead' ? (p.dead.cause === 'mercy' ? 'Mercy-unlocked.' : 'Starved as a monster.')
+      : st === 'monster' ? 'Starving. Dies in ' + dur(E.hoursToNext(S)) + '.'
+      : p.streak + '-day streak, fed ' + dur(h) + ' ago';
+    $('hatch').hidden = st !== 'dead';
+
+    var apps = document.querySelectorAll('.app');
+    for (var i = 0; i < apps.length; i++) {
+      var locked = st === 'monster' && apps[i].dataset.group === 'fun';
+      apps[i].dataset.locked = locked ? 'true' : 'false';
+      apps[i].setAttribute('aria-label', apps[i].dataset.name + (locked ? ', locked' : ''));
+    }
+
+    var lock = $('lock');
+    lock.hidden = !lockedApp;
+    if (lockedApp) {
+      $('lockText').textContent = lockedApp + ' is closed. ' + p.name + ' has not eaten in ' + dur(h) + '. Push a commit and it turns back.';
+      $('lockCount').textContent = 'Dies in ' + dur(E.hoursToNext(S));
+      var mb = $('lockMercy');
+      mb.dataset.armed = mercyArmed ? 'true' : 'false';
+      mb.textContent = mercyArmed ? 'Tap again. ' + p.name + ' will die.' : 'Mercy unlock';
+      $('lockFine').textContent = 'Mercy unlock opens ' + lockedApp + ' now and kills ' + p.name + '.';
+    }
+
+    $('lcdTime').textContent = 'DAY ' + dayOf(S.now) + ' ' + pad(hourOf(S.now)) + ':00';
+    $('lcdFed').textContent = p.lastFedAt == null ? 'never' : st === 'dead' ? 'too late' : dur(h) + ' ago';
+    var next = E.hoursToNext(S);
+    $('lcdNext').textContent = st === 'egg' ? 'Push a commit to hatch'
+      : st === 'happy' ? 'Hungry in ' + dur(next)
+      : st === 'hungry' ? 'Monster in ' + dur(next)
+      : st === 'monster' ? 'Dies in ' + dur(next) : 'Hatch a new egg to go again';
+    var needle = $('needle');
+    needle.hidden = st === 'egg';
+    needle.style.left = Math.min(100, (h / E.DEAD_AT) * 100) + '%';
+    $('track').setAttribute('aria-label', st === 'egg' ? 'Not hatched yet' : Math.floor(h) + ' hours since last ship, ' + st);
+
+    var dead = st === 'dead';
+    $('kCommit').disabled = dead; $('kMerge').disabled = dead; $('kCI').disabled = dead || st === 'egg';
+    $('kCI').textContent = p.ciFailing ? 'Fix CI' : 'Break CI';
+    $('kCI').setAttribute('aria-pressed', p.ciFailing ? 'true' : 'false');
+    $('kRun').disabled = dead;
+    $('kRun').textContent = runTimer ? 'Pause clock' : 'Run clock';
+    $('kRun').setAttribute('aria-pressed', runTimer ? 'true' : 'false');
+
+    var log = $('log'); log.textContent = '';
+    S.log.slice(0, 8).forEach(function (e) {
+      var li = document.createElement('li'), tm = document.createElement('time'), sp = document.createElement('span');
+      tm.textContent = stamp(e.t); sp.textContent = e.text; li.appendChild(tm); li.appendChild(sp); log.appendChild(li);
+    });
+
+    var graves = $('graves'); graves.textContent = '';
+    $('noGraves').hidden = S.graveyard.length > 0;
+    S.graveyard.forEach(function (g) {
+      var li = document.createElement('li'); li.className = 'grave';
+      var c = document.createElement('canvas'); c.width = 16; c.height = 16; SP.draw(c.getContext('2d'), { kind: 'tomb' });
+      var box = document.createElement('div'), tx = document.createElement('p'), bt = document.createElement('button');
+      var text = E.epitaph(g);
+      tx.textContent = text + ' Best streak ' + g.bestStreak + (g.bestStreak === 1 ? ' day.' : ' days.');
+      bt.type = 'button'; bt.className = 'copy'; bt.textContent = 'Copy epitaph';
+      bt.addEventListener('click', function () {
+        var done = function () { bt.textContent = 'Copied'; setTimeout(function () { bt.textContent = 'Copy epitaph'; }, 1600); };
+        var fail = function () { toast('Copy is blocked here. Long-press the text to copy it.'); };
+        try { navigator.clipboard.writeText(text).then(done, fail); } catch (e) { fail(); }
+      });
+      box.appendChild(tx); box.appendChild(bt); li.appendChild(c); li.appendChild(box); graves.appendChild(li);
+    });
+
+    drawPet();
+    save();
+  }
+
+  /* ---------- boot ---------- */
+  function start(data) {
+    S = valid(data) ? data : load();
+    if (!S) demo();
+    buildApps();
+    $('poke').addEventListener('click', poke);
+    $('hatch').addEventListener('click', hatch);
+    $('kCommit').addEventListener('click', function () { ship('commit'); });
+    $('kMerge').addEventListener('click', function () { ship('merge'); });
+    $('kCI').addEventListener('click', toggleCI);
+    $('kH1').addEventListener('click', function () { advance(1); });
+    $('kH6').addEventListener('click', function () { advance(6); });
+    $('kD1').addEventListener('click', function () { advance(24); });
+    $('kRun').addEventListener('click', toggleRun);
+    $('kReset').addEventListener('click', reset);
+    $('lockHome').addEventListener('click', function () { lockedApp = null; mercyArmed = false; render(); });
+    $('lockMercy').addEventListener('click', mercy);
+    render();
+    setInterval(function () { frame++; if (!reduce || Date.now() < joyUntil + 600) drawPet(); }, 480);
+    try { if (self.claude && self.claude.hot && self.claude.hot.snapshot) self.claude.hot.snapshot(function () { return S; }); } catch (e) {}
+  }
+  var hot = self.claude && self.claude.hot;
+  if (hot && hot.ready) hot.ready(start); else start(hot && hot.data ? hot.data : null);
+})();
+
+</script>
+</body>
+</html>

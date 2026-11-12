@@ -1,0 +1,15 @@
+# Gradle and Android build output
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.cxx/
+
+# OS
+.DS_Store
+
+# Python and Node scratch
+__pycache__/
+node_modules/

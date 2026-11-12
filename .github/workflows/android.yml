@@ -1,0 +1,69 @@
+name: Android build
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Unit tests and debug APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain testDebugUnitTest assembleDebug 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      # Puts the important lines of a failed build into an annotation, so the cause is readable without opening the full log.
+      - name: Show what failed
+        if: failure()
+        run: |
+          touch "$RUNNER_TEMP/errs.txt"
+          grep -E "^e: |error:|FAILED|What went wrong|^> |Unresolved|AAPT|Could not|Exception" "$RUNNER_TEMP/build.log" | head -n 60 >> "$RUNNER_TEMP/errs.txt" || true
+          grep -h -o 'failure message="[^"]*"' android/app/build/test-results/testDebugUnitTest/*.xml 2>/dev/null | head -n 20 >> "$RUNNER_TEMP/errs.txt" || true
+          MSG=$(sed 's/%/%25/g' "$RUNNER_TEMP/errs.txt" | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Build failed::${MSG}"
+
+      - name: Keep the APK with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ship-monster-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # One prerelease, overwritten on every green build, so there is always a stable link to the newest APK.
+      - name: Publish rolling debug APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=debug-latest
+          cp android/app/build/outputs/apk/debug/app-debug.apk ship-monster-debug.apk
+          NOTES="Rolling debug build. Branch ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}, run ${GITHUB_RUN_NUMBER}. A test build with fake-commit buttons, not a release."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" ship-monster-debug.apk --clobber
+            gh release edit "$TAG" --notes "$NOTES"
+          else
+            gh release create "$TAG" ship-monster-debug.apk --prerelease --title "Latest debug build" --notes "$NOTES" --target "$GITHUB_SHA"
+          fi

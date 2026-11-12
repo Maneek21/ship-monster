@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Monster Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&amp;family=Pixelify+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<main class="unit">
+  <header class="brand">
+    <h1>Ship Monster</h1>
+    <p>Simulator v0.1. Commits here are pretend and nothing touches your real phone.</p>
+  </header>
+
+  <section class="bezel" aria-label="Simulated Android home screen">
+    <div class="screen" id="screen" data-status="happy">
+      <div class="statusbar">
+        <span id="sbClock">14:00</span>
+        <span class="sb-right" aria-hidden="true"><i class="sig"></i><i class="bat"></i></span>
+      </div>
+
+      <div class="widget" id="widget">
+        <button class="poke" id="poke" type="button" aria-label="Poke the pet">
+          <canvas id="petCanvas" width="16" height="16"></canvas>
+        </button>
+        <div class="w-info">
+          <span class="w-name" id="wName">Pip the Sprout</span>
+          <span class="pill" id="wPill" data-kind="happy">Happy</span>
+          <span class="belly" id="wBellyWrap" role="img" aria-label="Belly"><span class="belly-fill" id="wBelly"></span></span>
+          <span class="w-meta" id="wMeta">3-day streak, fed 5h ago</span>
+          <button class="hatch" id="hatch" type="button" hidden>Hatch a new egg</button>
+        </div>
+      </div>
+
+      <div class="apps" id="apps"></div>
+
+      <div class="lock" id="lock" hidden>
+        <canvas id="lockCanvas" width="16" height="16"></canvas>
+        <h2>Feed me commits</h2>
+        <p id="lockText">Scrolly is closed.</p>
+        <span class="count" id="lockCount">Dies in 2d 3h</span>
+        <div class="lock-actions">
+          <button class="btn-home" id="lockHome" type="button">Back to home</button>
+          <button class="btn-mercy" id="lockMercy" type="button">Mercy unlock</button>
+        </div>
+        <small id="lockFine">Mercy unlock opens your apps now and kills the pet.</small>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="deck" aria-label="Simulator controls">
+    <div class="lcd">
+      <div><span class="lcd-k">SIM TIME</span><span class="lcd-v" id="lcdTime">DAY 3 14:00</span></div>
+      <div><span class="lcd-k">LAST SHIP</span><span class="lcd-v" id="lcdFed">5h ago</span></div>
+      <div class="lcd-next" id="lcdNext">Hungry in 19h</div>
+    </div>
+
+    <div class="track-wrap">
+      <div class="track" role="img" id="track" aria-label="Hours since last ship">
+        <span class="seg-ok"></span><span class="seg-warn"></span><span class="seg-mon"></span>
+        <i class="needle" id="needle"></i>
+      </div>
+      <div class="track-labels" aria-hidden="true"><span>Happy</span><span>Hungry</span><span>Monster</span><span>Dead</span></div>
+    </div>
+
+    <div class="keys">
+      <div class="keygroup">
+        <h2>Ship</h2>
+        <div class="keyrow">
+          <button class="key" id="kCommit" type="button">Push commit</button>
+          <button class="key" id="kMerge" type="button">Merge PR</button>
+          <button class="key" id="kCI" type="button" aria-pressed="false">Break CI</button>
+        </div>
+      </div>
+      <div class="keygroup">
+        <h2>Time</h2>
+        <div class="keyrow">
+          <button class="key" id="kH1" type="button">+1 hour</button>
+          <button class="key" id="kH6" type="button">+6 hours</button>
+          <button class="key" id="kD1" type="button">+1 day</button>
+          <button class="key" id="kRun" type="button" aria-pressed="false">Run clock</button>
+          <button class="key quiet" id="kReset" type="button">Reset demo</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="leaflet">
+    <div>
+      <h2>What happened</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+    <div>
+      <h2>Graveyard</h2>
+      <ul class="graves" id="graves"></ul>
+      <p class="empty" id="noGraves">Nobody has died yet. Skip five days without shipping and that changes.</p>
+    </div>
+    <div>
+      <h2>Rules in this build</h2>
+      <dl class="rules">
+        <dt>Hungry</dt><dd>24 hours without a ship. A warning, nothing locks.</dd>
+        <dt>Monster</dt><dd>48 hours. The four distraction apps lock until you ship.</dd>
+        <dt>Dead</dt><dd>72 hours as a monster, or the moment you mercy unlock.</dd>
+        <dt>Grows</dt><dd>Sprout, then Leafling at a 7-day streak, then Bloom at 30.</dd>
+      </dl>
+    </div>
+    <p class="fine">Run clock moves one hour per second. This hosted page cannot reach GitHub, so commits are buttons for now.</p>
+  </section>
+</main>
+
+<script>
+/*__ENGINE__*/
+</script>
+<script>
+/*__SPRITES__*/
+</script>
+<script>
+/*__APP__*/
+</script>
+</body>
+</html>
