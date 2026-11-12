@@ -170,8 +170,11 @@ class LockService : Service() {
                 val key = "${e.timeStamp}|${e.eventType}|${e.packageName}|${e.className}"
                 if (!seenEvents.add(key)) continue
                 if (seenEvents.size > 400) {
-                    val it = seenEvents.iterator()
-                    repeat(200) { it.next(); it.remove() }
+                    val oldest = seenEvents.iterator()
+                    repeat(200) {
+                        oldest.next()
+                        oldest.remove()
+                    }
                 }
                 // A system permission prompt belongs to the app underneath it, so it does not change who is in front.
                 if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED && e.packageName !in SEE_THROUGH) foreground = e.packageName
