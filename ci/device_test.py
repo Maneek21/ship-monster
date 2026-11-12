@@ -358,6 +358,9 @@ def main():
         sh(f"monkey -p {target} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1")
         again = wait_for(lambda: text_of("lock_text"), 15)
         check("reopening the locked app locks it again", again is not None)
+        if again is None:
+            shot("10a_relock_missing")
+            note("app log at relock failure", app_log().strip().splitlines()[-12:])
         n = find(dump(), id="lock_mercy")
         if n:
             # One tap only arms it. Left alone, it must disarm and stay locked.
@@ -430,6 +433,7 @@ def main():
     check("no crashes", not c, c[-1500:])
 
     # 12. Reboot: sync job and guard must come back on their own
+    note("app log before reboot", app_log().strip().splitlines()[-14:])
     sh("cmd connectivity airplane-mode disable")
     sh("cmd appops write-settings")
     note("lock settings before reboot", re.findall(r'name="(lock_enabled)" value="(\w+)"', prefs("settings")))

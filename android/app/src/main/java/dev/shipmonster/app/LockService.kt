@@ -37,7 +37,7 @@ class LockService : Service() {
     private var overlayPkg: String? = null
     private var foreground: String? = null
     private var lastQuery = 0L
-    private var lastEventStamp = 0L
+    private val seenEvents = LinkedHashSet<String>()
     private var screenOn = true
     private var lastStatus: Status? = null
     private var lastSyncKick = 0L
@@ -126,7 +126,7 @@ class LockService : Service() {
             hideOverlay()
             foreground = null
             lastQuery = 0L
-            lastEventStamp = 0L
+            seenEvents.clear()
             val next = PetEngine.hoursToNext(s, now)
             val wait = if (next == null) IDLE_MS else minOf(IDLE_MS, (next * PetEngine.H).toLong() + 1_000)
             handler.postDelayed(loop, maxOf(1_000L, wait))
@@ -166,8 +166,13 @@ class LockService : Service() {
             while (events.hasNextEvent()) {
                 events.getNextEvent(e)
                 // Each event is handled once, so going home is not undone by an older event read again.
-                if (e.timeStamp <= lastEventStamp) continue
-                lastEventStamp = e.timeStamp
+                // Keyed on the whole event, not just its time: two events can share a millisecond.
+                val key = "${e.timeStamp}|${e.eventType}|${e.packageName}|${e.className}"
+                if (!seenEvents.add(key)) continue
+                if (seenEvents.size > 400) {
+                    val it = seenEvents.iterator()
+                    repeat(200) { it.next(); it.remove() }
+                }
                 // A system permission prompt belongs to the app underneath it, so it does not change who is in front.
                 if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED && e.packageName !in SEE_THROUGH) foreground = e.packageName
             }
@@ -187,7 +192,7 @@ class LockService : Service() {
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             )
             v.findViewById<ImageView>(R.id.lock_pet).setImageBitmap(Sprites.forState(s, now, 24))
