@@ -37,6 +37,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -47,5 +51,10 @@ android {
 }
 
 dependencies {
+    // FileProvider, for handing the share image to other apps
+    implementation("androidx.core:core:1.13.1")
+
     testImplementation("junit:junit:4.13.2")
+    // Android only ships stubs of org.json to unit tests; this is the real thing
+    testImplementation("org.json:json:20240303")
 }

@@ -19,6 +19,13 @@ object PetStore {
 
     fun tzOffset(now: Long): Long = TimeZone.getDefault().getOffset(now).toLong()
 
+    /** How far the test lab has pushed the pet clock ahead of real time. */
+    fun clockOffset(c: Context): Long = prefs(c).getLong(KEY_OFFSET, 0L)
+
+    fun resetClock(c: Context) {
+        prefs(c).edit().remove(KEY_OFFSET).apply()
+    }
+
     fun skip(c: Context, hours: Int) {
         val p = prefs(c)
         p.edit().putLong(KEY_OFFSET, p.getLong(KEY_OFFSET, 0L) + hours * PetEngine.H).apply()

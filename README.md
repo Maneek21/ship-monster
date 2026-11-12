@@ -2,15 +2,33 @@
 
 A pet that lives on your Android home screen and eats your commits. Stop shipping and it turns into a monster that locks your distraction apps. Leave it a monster too long and it dies.
 
-**Status: early prototype.** The pet rules, sprites and widget work. GitHub sync and the app lock are not built yet.
+**Status: v0.2, feature complete but untested on a real phone.** Everything compiles and the logic has unit tests. Nobody has run it on a device yet, so expect rough edges in the screens and the lock.
+
+## What it does
+
+| Feature | State |
+|---|---|
+| Home screen widget with the pet, its mood, belly and streak | Built |
+| GitHub sync: pushes and merged pull requests feed the pet | Built. Username only for public repos, optional token for private ones |
+| Background sync about every 15 minutes | Built |
+| Notifications when the pet gets hungry, turns monster, turns back or dies | Built |
+| Monster lock: covers the apps you pick until you ship | Built |
+| Mercy unlock: get your apps back now, at the cost of the pet | Built |
+| Sick pet when your last CI run failed | Built |
+| Share image for the pet and for each grave | Built |
+| Test lab: fake a ship or skip time | Built |
+| Browser simulator of the rules | Built, in `simulator/` |
+
+How it works and why it is built this way: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## What is here
 
-| Folder | What it is | State |
-|---|---|---|
-| `simulator/` | Browser simulator: a fake home screen with the widget, monster lock and mercy unlock, driven by buttons | Working |
-| `android/` | Android app (Kotlin): pet engine, pixel sprites, home screen widget, test screen with fake-commit and skip-time buttons | v0, no GitHub sync, no lock |
-| `.github/workflows/android.yml` | Builds a debug APK on every push that touches `android/` | See the Actions tab |
+| Folder | What it is |
+|---|---|
+| `android/` | The Android app, in Kotlin. No UI framework, one small AndroidX dependency |
+| `simulator/` | Browser simulator: a fake home screen with the widget, monster lock and mercy unlock, driven by buttons |
+| `docs/` | Design notes |
+| `.github/workflows/android.yml` | Runs the unit tests and builds a debug APK on every push that touches `android/` |
 
 ## The rules
 
@@ -18,7 +36,7 @@ A pet that lives on your Android home screen and eats your commits. Stop shippin
 |---|---|---|
 | Happy | Shipped in the last 24 hours | None |
 | Hungry | 24 hours without a ship | A warning. Nothing locks |
-| Monster | 48 hours without a ship | Chosen distraction apps lock until you ship (planned) |
+| Monster | 48 hours without a ship | The apps you picked lock until you ship |
 | Dead | 72 hours as a monster, or a mercy unlock | New egg, streak resets, pet goes to the graveyard |
 
 The pet grows with your streak: Sprout, then Leafling at 7 days, then Bloom at 30.
@@ -31,7 +49,12 @@ Each green build publishes the newest debug APK to the `debug-latest` prerelease
 
 https://github.com/Maneek21/ship-monster/releases/download/debug-latest/ship-monster-debug.apk
 
-Install it, open the app, then add the widget: long press the home screen, Widgets, Ship Monster. Use the test buttons to fake commits and skip time.
+1. Install it and open the app.
+2. Tap "Connect GitHub" and enter your username. Add a token if you want private repos to count.
+3. Tap "Add the home screen widget".
+4. Optional: tap "Arm the monster lock", grant the two permissions, and pick the apps to lock.
+
+To see every state without waiting days, use the test lab at the bottom of Setup.
 
 It is a debug build signed with the public key in `android/debug.keystore`. That key is committed on purpose so each build installs over the last one. Do not use it for a real release.
 
@@ -54,10 +77,10 @@ python3 build.py        # writes index.html, open it in a browser
 
 ## Next
 
-1. GitHub sign-in and polling, so real commits feed the pet
-2. The monster lock: usage access, an overlay, an allowlist, and the mercy unlock
-3. Share card for the graveyard
-4. Background refresh that reacts faster than the widget's 30 minute tick
+1. Run it on real phones and fix what breaks
+2. Sign in with GitHub instead of pasting a token
+3. Play Store submission, which needs a policy review for a blocker app
+4. A proper release signing key
 
 ## Licence
 

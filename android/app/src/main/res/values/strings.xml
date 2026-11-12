@@ -4,15 +4,43 @@
     <string name="pet">Your pet</string>
     <string name="widget_desc">A pet that eats your commits and turns monster when you stop shipping.</string>
     <string name="belly">Belly</string>
-    <string name="test_heading">Test controls</string>
-    <string name="test_note">This build has no GitHub sync yet. These buttons fake commits and skip time so you can watch the widget change. Add the widget from your home screen: long press, Widgets, Ship Monster.</string>
+
+    <string name="btn_sync">Sync now</string>
+    <string name="btn_share">Share</string>
+    <string name="btn_hatch">Hatch a new egg</string>
+    <string name="btn_mercy">Mercy unlock</string>
+    <string name="btn_settings">Setup and settings</string>
+    <string name="h_setup">Setup</string>
+    <string name="h_graveyard">Graveyard</string>
+    <string name="graveyard_empty">Nobody has died yet. Go five days without shipping and that changes.</string>
+
+    <string name="title_setup">Setup</string>
+    <string name="h_github">GitHub</string>
+    <string name="github_help">Your username is enough for public repos you own. Add a token to also count private repos and repos you collaborate on. A fine-grained token with read-only Contents, Metadata and Actions is all it needs. It is stored encrypted on this phone and only ever sent to api.github.com.</string>
+    <string name="hint_username">GitHub username</string>
+    <string name="hint_token">Token (optional)</string>
+    <string name="btn_save_github">Save and sync</string>
+    <string name="btn_remove_token">Remove token</string>
+
+    <string name="h_lock">Monster lock</string>
+    <string name="lock_help">When your pet turns monster, the apps you pick are covered by a lock screen until you ship. Calls, messages, payments, maps, settings and your shipping tools are never offered. You can always get out with a mercy unlock, which kills the pet.</string>
+    <string name="btn_grant">Grant</string>
+    <string name="btn_choose">Choose</string>
+    <string name="sw_lock">Lock is on</string>
+
+    <string name="h_notify">Notifications</string>
+    <string name="sw_notify">Tell me when the pet changes state</string>
+
+    <string name="h_test">Test lab</string>
+    <string name="test_note">Fake a ship or skip time to see every state without waiting days. Skipping time moves the pet clock forward, so real pushes will look older than they are until you reset the clock.</string>
     <string name="btn_commit">Fake commit</string>
     <string name="btn_merge">Fake merged PR</string>
     <string name="btn_skip6">Skip 6 hours</string>
     <string name="btn_skip24">Skip 1 day</string>
-    <string name="btn_mercy">Mercy unlock (kills the pet)</string>
-    <string name="btn_hatch">Hatch a new egg</string>
-    <string name="btn_reset">Reset everything</string>
-    <string name="graveyard">Graveyard</string>
-    <string name="graveyard_empty">Nobody has died yet.</string>
+    <string name="btn_reset_clock">Reset the pet clock</string>
+    <string name="btn_reset_all">Reset everything</string>
+
+    <string name="lock_title">Feed me commits</string>
+    <string name="lock_home">Back to home</string>
+    <string name="lock_check">I shipped. Check now</string>
 </resources>

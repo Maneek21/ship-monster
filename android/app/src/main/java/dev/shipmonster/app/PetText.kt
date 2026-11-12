@@ -1,6 +1,6 @@
 package dev.shipmonster.app
 
-/** Words shown on the widget and the app screen. Pure Kotlin. */
+/** Words shown on the widget and the app screens. Pure Kotlin. */
 object PetText {
     fun dur(hours: Double): String {
         val h = maxOf(0.0, hours)
@@ -9,6 +9,17 @@ object PetText {
         val d = (h / 24).toInt()
         val r = (h % 24).toInt()
         return if (r > 0) "${d}d ${r}h" else "${d}d"
+    }
+
+    /** "just now", "12 min ago", "3h ago", "2d ago" for a span in milliseconds. */
+    fun ago(ms: Long): String {
+        val min = maxOf(0L, ms) / 60_000
+        return when {
+            min < 1 -> "just now"
+            min < 60 -> "$min min ago"
+            min < 48 * 60 -> "${min / 60}h ago"
+            else -> "${min / (24 * 60)}d ago"
+        }
     }
 
     fun formLabel(f: Form): String = when (f) {
@@ -39,6 +50,18 @@ object PetText {
             Status.DEAD -> if (p.deadCause == Cause.MERCY) "Mercy-unlocked." else "Starved as a monster."
             Status.MONSTER -> "Starving. Dies in ${dur(PetEngine.hoursToNext(s, now) ?: 0.0)}."
             else -> "${p.streak}-day streak, fed ${dur(PetEngine.hoursSinceFed(s, now))} ago"
+        }
+    }
+
+    /** What happens next and when. */
+    fun next(s: PetState, now: Long): String {
+        val left = dur(PetEngine.hoursToNext(s, now) ?: 0.0)
+        return when (PetEngine.status(s, now)) {
+            Status.EGG -> "Ship something to hatch"
+            Status.HAPPY -> "Hungry in $left"
+            Status.HUNGRY -> "Monster in $left"
+            Status.MONSTER -> "Dies in $left"
+            Status.DEAD -> "Hatch a new egg to go again"
         }
     }
 }

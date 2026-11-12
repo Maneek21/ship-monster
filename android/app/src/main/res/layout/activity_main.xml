@@ -2,141 +2,218 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/shell"
     android:fillViewport="true"
     android:fitsSystemWindows="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:padding="20dp">
-
-        <ImageView
-            android:id="@+id/main_pet"
-            android:layout_width="176dp"
-            android:layout_height="176dp"
-            android:layout_marginTop="8dp"
-            android:contentDescription="@string/pet"
-            android:scaleType="fitCenter" />
+        android:padding="18dp">
 
         <TextView
-            android:id="@+id/main_name"
+            style="@style/Title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:fontFamily="monospace"
-            android:textColor="@color/ink"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            android:text="@string/app_name" />
 
-        <TextView
-            android:id="@+id/main_state"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textAllCaps="true"
-            android:textColor="@color/ok"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <ProgressBar
-            android:id="@+id/main_belly"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="220dp"
-            android:layout_height="10dp"
-            android:layout_marginTop="10dp"
-            android:contentDescription="@string/belly"
-            android:max="100" />
-
-        <TextView
-            android:id="@+id/main_meta"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:textColor="@color/ink_soft"
-            android:textSize="14sp" />
-
-        <TextView
+        <!-- the screen -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            android:fontFamily="monospace"
-            android:text="@string/test_heading"
-            android:textColor="@color/ink"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bezel"
+            android:orientation="vertical"
+            android:padding="12dp">
 
-        <TextView
+            <LinearLayout
+                android:id="@+id/main_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <ImageView
+                    android:id="@+id/main_pet"
+                    android:layout_width="124dp"
+                    android:layout_height="124dp"
+                    android:contentDescription="@string/pet"
+                    android:scaleType="fitCenter" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/main_name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="@color/ink"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/main_state"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textAllCaps="true"
+                        android:textColor="@color/ok"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/main_belly"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="10dp"
+                        android:layout_marginTop="6dp"
+                        android:contentDescription="@string/belly"
+                        android:max="100" />
+
+                    <TextView
+                        android:id="@+id/main_meta"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/ink_soft"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- the LCD readout -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/test_note"
-            android:textColor="@color/ink_soft"
-            android:textSize="13sp" />
+            android:layout_marginTop="14dp"
+            android:background="@drawable/lcd"
+            android:orientation="vertical"
+            android:padding="12dp">
 
-        <Button
-            android:id="@+id/btn_commit"
+            <TextView
+                android:id="@+id/main_next"
+                style="@style/Lcd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/main_sync"
+                style="@style/Lcd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" />
+
+            <TextView
+                android:id="@+id/main_message"
+                style="@style/Lcd"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/btn_commit" />
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal">
 
-        <Button
-            android:id="@+id/btn_merge"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_merge" />
+            <Button
+                android:id="@+id/btn_sync"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="@string/btn_sync" />
 
-        <Button
-            android:id="@+id/btn_skip6"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_skip6" />
-
-        <Button
-            android:id="@+id/btn_skip24"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_skip24" />
-
-        <Button
-            android:id="@+id/btn_mercy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_mercy" />
+            <Button
+                android:id="@+id/btn_share"
+                style="@style/Btn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/btn_share" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_hatch"
+            style="@style/Btn.Light"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/btn_hatch" />
+            android:layout_marginTop="10dp"
+            android:text="@string/btn_hatch"
+            android:visibility="gone" />
 
         <Button
-            android:id="@+id/btn_reset"
+            android:id="@+id/btn_mercy"
+            style="@style/Btn.Outline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/btn_reset" />
+            android:layout_marginTop="10dp"
+            android:text="@string/btn_mercy"
+            android:visibility="gone" />
 
-        <TextView
+        <!-- the paper leaflet -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            android:fontFamily="monospace"
-            android:text="@string/graveyard"
-            android:textColor="@color/ink"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_marginTop="18dp"
+            android:background="@drawable/leaflet"
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <TextView
-            android:id="@+id/main_graves"
+            <TextView
+                style="@style/Heading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/h_setup" />
+
+            <LinearLayout
+                android:id="@+id/setup_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="vertical" />
+
+            <TextView
+                style="@style/Heading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="@string/h_graveyard" />
+
+            <TextView
+                android:id="@+id/grave_empty"
+                style="@style/Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/graveyard_empty" />
+
+            <LinearLayout
+                android:id="@+id/grave_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_settings"
+            style="@style/Btn.Outline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="4dp"
-            android:text="@string/graveyard_empty"
-            android:textColor="@color/ink_soft"
-            android:textSize="14sp" />
+            android:layout_marginTop="14dp"
+            android:text="@string/btn_settings" />
     </LinearLayout>
 </ScrollView>
