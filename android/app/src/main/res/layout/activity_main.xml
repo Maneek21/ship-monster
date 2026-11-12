@@ -76,7 +76,8 @@
                         android:layout_height="10dp"
                         android:layout_marginTop="6dp"
                         android:contentDescription="@string/belly"
-                        android:max="100" />
+                        android:max="100"
+                        android:progressTint="@color/ok" />
 
                     <TextView
                         android:id="@+id/main_meta"

@@ -62,6 +62,7 @@ class LockService : Service() {
     override fun onCreate() {
         super.onCreate()
         running = true
+        instance = this
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
@@ -95,6 +96,7 @@ class LockService : Service() {
 
     override fun onDestroy() {
         running = false
+        instance = null
         handler.removeCallbacksAndMessages(null)
         hideOverlay()
         try {
@@ -262,7 +264,13 @@ class LockService : Service() {
             }
             handler.post {
                 checking = false
-                if (!silent) note = if (outcome.fed > 0) outcome.message else "No new ship found yet. GitHub can take a minute."
+                if (!silent) {
+                    note = when {
+                        outcome.fed > 0 -> outcome.message
+                        !outcome.ok -> outcome.message
+                        else -> "No new ship found yet. GitHub can take a minute."
+                    }
+                }
                 PetRuntime.refresh(app)
                 handler.removeCallbacks(loop)
                 handler.post(loop)
@@ -300,12 +308,23 @@ class LockService : Service() {
         var running = false
             private set
 
+        @Volatile
+        private var instance: LockService? = null
+
         /**
          * Starts the guard if the lock is ready and it is not already running. Android only allows
          * this while the app is visible or at boot. If it is refused while the pet is a monster,
          * the user gets a notification asking them to open the app.
          */
         fun ensure(c: Context, monster: Boolean) {
+            // Already up: have it look at the pet now instead of waiting for its next scheduled check.
+            instance?.let { svc ->
+                svc.handler.post {
+                    svc.handler.removeCallbacks(svc.loop)
+                    svc.step()
+                }
+                return
+            }
             if (running || !LockAccess.ready(c)) return
             try {
                 c.startForegroundService(Intent(c, LockService::class.java))

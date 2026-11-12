@@ -32,7 +32,7 @@
     <string name="sw_notify">Tell me when the pet changes state</string>
 
     <string name="h_test">Test lab</string>
-    <string name="test_note">Fake a ship or skip time to see every state without waiting days. Skipping time moves the pet clock forward, so real pushes will look older than they are until you reset the clock.</string>
+    <string name="test_note">Fake a ship or skip time to see every state without waiting days. Skipping time moves the pet clock forward. Real pushes still count from the moment they land.</string>
     <string name="btn_commit">Fake commit</string>
     <string name="btn_merge">Fake merged PR</string>
     <string name="btn_skip6">Skip 6 hours</string>

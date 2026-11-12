@@ -156,6 +156,11 @@ def seek_tap(name, **kw):
     return True
 
 
+def state_is(word):
+    """The state pill is shown in capitals, so compare without case."""
+    return (text_of("main_state") or "").lower() == word.lower()
+
+
 def text_of(id, wait=0):
     end = time.time() + wait
     while True:
@@ -271,6 +276,11 @@ def main():
     tap(find(dump(), id="main_pet") or {"b": [0, 0, 2, 2]})
     shot("04_home_happy")
 
+    # From here on the phone is offline. That keeps real pushes made during the run from feeding
+    # the pet mid-test, and proves the lock does not depend on the network.
+    sh("cmd connectivity airplane-mode enable")
+    time.sleep(2)
+
     # 4. Arm the lock
     sh(f"appops set {PKG} GET_USAGE_STATS allow")
     sh(f"appops set {PKG} SYSTEM_ALERT_WINDOW allow")
@@ -302,13 +312,12 @@ def main():
     for _ in range(2):
         seek_tap("skip 1 day", id="btn_skip24")
     home()
-    st = text_of("main_state")
-    check("pet turns monster after two skipped days", st == "Monster", st)
+    check("pet turns monster after two skipped days", state_is("monster"), text_of("main_state"))
     shot("07_home_monster")
     # Let the automatic sync on opening the home screen finish. It must not feed the pet again.
     time.sleep(8)
     note("sync message while monster", text_of("main_message"))
-    check("an automatic sync with nothing new leaves the monster a monster", text_of("main_state") == "Monster", text_of("main_state"))
+    check("a sync that cannot reach GitHub leaves the monster a monster", state_is("monster"), text_of("main_state"))
 
     # 6. Open a locked app: the overlay must appear
     target = blocked[0] if blocked else None
@@ -328,7 +337,7 @@ def main():
         if n:
             tap(n)
             lock_note = wait_for(lambda: (lambda t: t if t and "Checking" not in t else None)(text_of("lock_note")), 30)
-            check("check-now reports back and stays locked", bool(lock_note) and text_of("lock_text") is not None, lock_note)
+            check("check-now says it is offline and stays locked", bool(lock_note) and "No connection" in lock_note and text_of("lock_text") is not None, lock_note)
 
         # back to home hides it
         n = find(dump(), id="lock_home")
@@ -421,6 +430,8 @@ def main():
     check("no crashes", not c, c[-1500:])
 
     # 12. Reboot: sync job and guard must come back on their own
+    sh("cmd connectivity airplane-mode disable")
+    sh("cmd appops write-settings")
     note("lock settings before reboot", re.findall(r'name="(lock_enabled)" value="(\w+)"', prefs("settings")))
     adb("reboot")
     time.sleep(10)

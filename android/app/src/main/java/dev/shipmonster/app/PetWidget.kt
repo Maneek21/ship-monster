@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 
@@ -43,7 +45,11 @@ class PetWidget : AppWidgetProvider() {
 
             val showBelly = st != Status.EGG && st != Status.DEAD
             v.setViewVisibility(R.id.pet_belly, if (showBelly) View.VISIBLE else View.GONE)
-            v.setProgressBar(R.id.pet_belly, 100, Math.round(PetEngine.fullness(s, now) * 100).toInt(), false)
+            val full = PetEngine.fullness(s, now)
+            v.setProgressBar(R.id.pet_belly, 100, Math.round(full * 100).toInt(), false)
+            if (Build.VERSION.SDK_INT >= 31) {
+                v.setColorStateList(R.id.pet_belly, "setProgressTintList", ColorStateList.valueOf(context.getColor(bellyColor(full))))
+            }
 
             val open = PendingIntent.getActivity(
                 context, 0, Intent(context, MainActivity::class.java),
@@ -51,6 +57,12 @@ class PetWidget : AppWidgetProvider() {
             )
             v.setOnClickPendingIntent(R.id.widget_root, open)
             return v
+        }
+
+        fun bellyColor(fullness: Double): Int = when {
+            fullness > 0.5 -> R.color.ok
+            fullness > 0.0 -> R.color.warn
+            else -> R.color.bad
         }
 
         fun stateColor(s: PetState, st: Status): Int = when (st) {

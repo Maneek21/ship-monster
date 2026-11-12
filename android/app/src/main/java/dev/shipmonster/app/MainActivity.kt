@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -236,7 +237,9 @@ class MainActivity : Activity() {
         meta.setTextColor(getColor(if (monster) R.color.on_monster_soft else R.color.ink_soft))
 
         val belly = findViewById<ProgressBar>(R.id.main_belly)
-        belly.progress = Math.round(PetEngine.fullness(s, now) * 100).toInt()
+        val full = PetEngine.fullness(s, now)
+        belly.progress = Math.round(full * 100).toInt()
+        belly.progressTintList = ColorStateList.valueOf(getColor(PetWidget.bellyColor(full)))
         belly.visibility = if (st == Status.EGG || st == Status.DEAD) View.INVISIBLE else View.VISIBLE
 
         findViewById<TextView>(R.id.main_next).text = PetText.next(s, now)
