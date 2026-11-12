@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "android/**"
+      - "ci/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
@@ -53,6 +54,16 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+      # Advisory. Lint findings are printed for review and never fail the build.
+      - name: Android lint
+        continue-on-error: true
+        working-directory: android
+        run: |
+          gradle --no-daemon --console=plain lintDebug > "$RUNNER_TEMP/lint.log" 2>&1 || true
+          echo "@@LINT BEGIN"
+          cat app/build/reports/lint-results-debug.txt 2>/dev/null || tail -n 40 "$RUNNER_TEMP/lint.log"
+          echo "@@LINT END"
+
       # One prerelease, overwritten on every green build, so there is always a stable link to the newest APK.
       - name: Publish rolling debug APK
         env:
@@ -67,3 +78,40 @@ jobs:
           else
             gh release create "$TAG" ship-monster-debug.apk --prerelease --title "Latest debug build" --notes "$NOTES" --target "$GITHUB_SHA"
           fi
+
+  # Installs the APK on real Android emulators and drives the main flows: sync, lock, mercy unlock, widget, share, reboot.
+  device-test:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 35]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ship-monster-debug
+          path: apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Pillow, for shrinking screenshots
+        run: python3 -m pip install --quiet --break-system-packages pillow || python3 -m pip install --quiet pillow
+
+      - name: Run on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: python3 ci/device_test.py apk/app-debug.apk
