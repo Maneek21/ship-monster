@@ -176,8 +176,25 @@ def wait_for(fn, seconds, every=1.0):
 
 
 def home():
-    sh(f"am start -W -n {PKG}/.MainActivity")
+    # clear-top closes the setup screen if it is open above the home screen
+    sh(f"am start -W --activity-clear-top -n {PKG}/.MainActivity")
     time.sleep(2)
+
+
+def hide_keyboard():
+    if "mInputShown=true" in sh("dumpsys input_method"):
+        sh("input keyevent 4")
+        time.sleep(1)
+
+
+def app_log():
+    return adb("logcat", "-d", "-s", "ShipMonster:V")
+
+
+def pet_prefs():
+    raw = prefs("pet")
+    m = re.search(r'name="state">(.*?)</string>', raw, re.S)
+    return (m.group(1).replace("&quot;", '"') if m else raw)[:700]
 
 
 def open_settings():
@@ -231,11 +248,16 @@ def main():
         sh(f"input text {GITHUB_USER}")
         time.sleep(0.5)
     seek_tap("save and sync", id="btn_save_github")
+    time.sleep(1)
+    check("keyboard is put away after saving", "mInputShown=true" not in sh("dumpsys input_method"))
+    hide_keyboard()
     state = wait_for(lambda: (lambda t: t if t and "Checking" not in t else None)(text_of("tv_github_state")), 40)
     check("username saved", state is not None and GITHUB_USER in (state or ""), state)
     home()
     sync_msg = text_of("main_message", wait=5)
     note("first sync message (no token)", sync_msg)
+    note("app log after first sync", app_log().strip().splitlines()[-4:])
+    note("pet state after first sync", pet_prefs())
     note("pet after first sync", f"{text_of('main_name')} / {text_of('main_state')} / {text_of('main_meta')}")
     check("first sync returned a real answer", bool(sync_msg) and "unexpected" not in (sync_msg or "").lower(), sync_msg)
     shot("03_home_after_sync")
@@ -270,7 +292,7 @@ def main():
     seek_tap("lock switch", id="sw_lock")
     time.sleep(2)
     lock_state = text_of("tv_lock_state")
-    check("lock arms from the setup screen", lock_state is not None and "Armed" in lock_state, lock_state)
+    check("setup screen says the lock is armed and running", lock_state == "Armed and running.", lock_state)
     run, fg = service_running()
     check("guard service is running in the foreground", run and fg, f"running={run} foreground={fg}")
     seek(id="sw_lock")
@@ -283,10 +305,16 @@ def main():
     st = text_of("main_state")
     check("pet turns monster after two skipped days", st == "Monster", st)
     shot("07_home_monster")
+    # Let the automatic sync on opening the home screen finish. It must not feed the pet again.
+    time.sleep(8)
+    note("sync message while monster", text_of("main_message"))
+    check("an automatic sync with nothing new leaves the monster a monster", text_of("main_state") == "Monster", text_of("main_state"))
 
     # 6. Open a locked app: the overlay must appear
     target = blocked[0] if blocked else None
     if target:
+        # Keep the locked app's own first-run prompts out of the way.
+        sh(f"pm grant {target} android.permission.POST_NOTIFICATIONS")
         sh("input keyevent 3")
         time.sleep(1)
         sh(f"monkey -p {target} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1")
@@ -393,13 +421,17 @@ def main():
     check("no crashes", not c, c[-1500:])
 
     # 12. Reboot: sync job and guard must come back on their own
+    note("lock settings before reboot", re.findall(r'name="(lock_enabled)" value="(\w+)"', prefs("settings")))
     adb("reboot")
     time.sleep(10)
     adb("wait-for-device", timeout=240)
     wait_for(lambda: sh("getprop sys.boot_completed").strip() == "1", 240, 3)
-    time.sleep(40)
+    ok = wait_for(lambda: all(service_running()), 150, 5)
     run, fg = service_running()
     check("guard service restarts after a reboot", run and fg, f"running={run} foreground={fg}")
+    note("usage access after reboot", sh(f"appops get {PKG} GET_USAGE_STATS").strip())
+    note("overlay permission after reboot", sh(f"appops get {PKG} SYSTEM_ALERT_WINDOW").strip())
+    note("app log after reboot", app_log().strip().splitlines()[-8:])
     job = sh(f"dumpsys jobscheduler | grep -c {PKG}/.SyncJobService").strip()
     check("background sync job survives a reboot", job.isdigit() and int(job) > 0, job)
     c = crashes()

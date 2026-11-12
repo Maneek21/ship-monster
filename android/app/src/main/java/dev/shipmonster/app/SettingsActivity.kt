@@ -6,6 +6,7 @@ import android.app.AlertDialog
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.EditText
@@ -79,6 +80,7 @@ class SettingsActivity : Activity() {
             toast("That does not look like a GitHub username.")
             return
         }
+        hideKeyboard()
         Prefs.setUsername(this, name)
         if (token.isNotEmpty()) {
             if (!Prefs.setToken(this, token)) {
@@ -104,6 +106,13 @@ class SettingsActivity : Activity() {
                 }
             }
         }.start()
+    }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(InputMethodManager::class.java) ?: return
+        val focused = currentFocus ?: return
+        imm.hideSoftInputFromWindow(focused.windowToken, 0)
+        focused.clearFocus()
     }
 
     // Monster lock
@@ -159,6 +168,8 @@ class SettingsActivity : Activity() {
         Prefs.setLockEnabled(this, true)
         PetRuntime.refresh(this)
         render()
+        // The guard starts a moment later; show its real state once it has.
+        findViewById<View>(R.id.sw_lock).postDelayed({ if (!isDestroyed) render() }, 800)
         toast("Lock armed. It only acts while the pet is a monster.")
     }
 

@@ -1,6 +1,7 @@
 package dev.shipmonster.app
 
 import android.content.Context
+import android.util.Log
 import java.io.IOException
 import java.time.Instant
 
@@ -14,6 +15,7 @@ class SyncOutcome(val message: String, val fed: Int, val ok: Boolean)
  * owns. With a token it also sees private repos and ones they collaborate on.
  */
 object GitHubSync {
+    private const val TAG = "ShipMonster"
     private val lock = Any()
     private const val DAY = 24 * 60 * 60 * 1000L
 
@@ -25,11 +27,13 @@ object GitHubSync {
         } catch (e: IOException) {
             fail(c, "No connection to GitHub. Will retry.")
         } catch (e: Exception) {
+            Log.w(TAG, "sync failed", e)
             fail(c, "Sync hit an unexpected problem. Will retry.")
         }
     }
 
     private fun fail(c: Context, message: String): SyncOutcome {
+        Log.i(TAG, "sync stopped: $message")
         Prefs.saveSyncFailure(c, message)
         return SyncOutcome(message, 0, false)
     }
@@ -80,8 +84,12 @@ object GitHubSync {
         }
 
         val s = PetStore.load(c)
-        val toApply = if (first) SyncLogic.firstSyncWindow(events, realNow) else SyncLogic.newEvents(events, lastSeen)
+        val fresh = if (first) SyncLogic.firstSyncWindow(events, realNow) else SyncLogic.newEvents(events, lastSeen)
+        // The pet clock is real time plus whatever the test lab skipped, so real events are moved by the same amount.
+        val offset = PetStore.clockOffset(c)
+        val toApply = fresh.map { it.copy(time = it.time + offset) }
         val summary = SyncLogic.apply(s, toApply, PetStore.tzOffset(realNow), backdate = first)
+        Log.i(TAG, "sync first=$first repos=${repos.size} checked=${candidates.size} events=${events.size} applied=${summary.fed}")
 
         // CI health of the repo shipped to most recently. A red build makes the pet sick.
         val ciRepo = toApply.lastOrNull()?.repo ?: Prefs.lastRepo(c)

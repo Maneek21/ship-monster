@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -81,9 +82,11 @@ class LockService : Service() {
                 startForeground(Notifier.ID_GUARD, Notifier.guard(this))
             }
         } catch (e: Exception) {
+            Log.w(TAG, "guard could not go foreground: $e")
             stopSelf()
             return START_NOT_STICKY
         }
+        Log.i(TAG, "guard running")
         Notifier.clearReopen(this)
         handler.removeCallbacks(loop)
         handler.post(loop)
@@ -163,7 +166,8 @@ class LockService : Service() {
                 // Each event is handled once, so going home is not undone by an older event read again.
                 if (e.timeStamp <= lastEventStamp) continue
                 lastEventStamp = e.timeStamp
-                if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED) foreground = e.packageName
+                // A system permission prompt belongs to the app underneath it, so it does not change who is in front.
+                if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED && e.packageName !in SEE_THROUGH) foreground = e.packageName
             }
         } catch (ex: Exception) {
             // usage access was revoked; ready() catches that on the next pass
@@ -204,6 +208,7 @@ class LockService : Service() {
             }
             v.requestFocus()
             overlay = v
+            Log.i(TAG, "lock shown over $pkg")
             note = null
             mercyArmedUntil = 0L
         }
@@ -286,7 +291,9 @@ class LockService : Service() {
     }
 
     companion object {
+        private const val TAG = "ShipMonster"
         private const val IDLE_MS = 10 * 60_000L
+        private val SEE_THROUGH = setOf("com.android.permissioncontroller", "com.google.android.permissioncontroller")
         private const val SYNC_EVERY_MS = 5 * 60_000L
 
         @Volatile
@@ -302,7 +309,9 @@ class LockService : Service() {
             if (running || !LockAccess.ready(c)) return
             try {
                 c.startForegroundService(Intent(c, LockService::class.java))
+                Log.i(TAG, "guard start requested")
             } catch (e: Exception) {
+                Log.w(TAG, "guard could not start: $e")
                 if (monster) Notifier.askToReopen(c)
             }
         }

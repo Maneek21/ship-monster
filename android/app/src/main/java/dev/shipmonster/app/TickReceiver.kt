@@ -5,10 +5,12 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 
 /** Wakes the app when the pet is due to change state, and after a reboot. */
 class TickReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        Log.i("ShipMonster", "wake: ${intent.action}")
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) SyncJobService.schedule(context)
         PetRuntime.refresh(context)
     }
