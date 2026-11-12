@@ -60,7 +60,7 @@ jobs:
         run: |
           TAG=debug-latest
           cp android/app/build/outputs/apk/debug/app-debug.apk ship-monster-debug.apk
-          NOTES="Rolling debug build. Branch ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}, run ${GITHUB_RUN_NUMBER}. A test build with fake-commit buttons, not a release."
+          NOTES="Rolling debug build. Branch ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}, run ${GITHUB_RUN_NUMBER}. A debug build for testing, not a release."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" ship-monster-debug.apk --clobber
             gh release edit "$TAG" --notes "$NOTES"

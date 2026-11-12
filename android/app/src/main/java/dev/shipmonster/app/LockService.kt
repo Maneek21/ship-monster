@@ -36,6 +36,7 @@ class LockService : Service() {
     private var overlayPkg: String? = null
     private var foreground: String? = null
     private var lastQuery = 0L
+    private var lastEventStamp = 0L
     private var screenOn = true
     private var lastStatus: Status? = null
     private var lastSyncKick = 0L
@@ -120,6 +121,7 @@ class LockService : Service() {
             hideOverlay()
             foreground = null
             lastQuery = 0L
+            lastEventStamp = 0L
             val next = PetEngine.hoursToNext(s, now)
             val wait = if (next == null) IDLE_MS else minOf(IDLE_MS, (next * PetEngine.H).toLong() + 1_000)
             handler.postDelayed(loop, maxOf(1_000L, wait))
@@ -158,6 +160,9 @@ class LockService : Service() {
             val e = UsageEvents.Event()
             while (events.hasNextEvent()) {
                 events.getNextEvent(e)
+                // Each event is handled once, so going home is not undone by an older event read again.
+                if (e.timeStamp <= lastEventStamp) continue
+                lastEventStamp = e.timeStamp
                 if (e.eventType == UsageEvents.Event.ACTIVITY_RESUMED) foreground = e.packageName
             }
         } catch (ex: Exception) {
