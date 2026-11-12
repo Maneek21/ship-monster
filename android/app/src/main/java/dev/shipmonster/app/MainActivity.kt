@@ -249,6 +249,7 @@ class MainActivity : Activity() {
             syncing -> "Checking GitHub..."
             user.isEmpty() -> "GitHub is not connected yet"
             lastSync == 0L -> "@$user, not synced yet"
+            !Prefs.lastSyncOk(this) -> "@$user, last try ${PetText.ago(System.currentTimeMillis() - lastSync)}"
             else -> "@$user, synced ${PetText.ago(System.currentTimeMillis() - lastSync)}"
         }
         val message = findViewById<TextView>(R.id.main_message)

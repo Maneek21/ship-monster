@@ -193,6 +193,21 @@
                 style="@style/Body"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
+
+            <TextView
+                style="@style/Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/lock_oem_tip" />
+
+            <Button
+                android:id="@+id/btn_app_settings"
+                style="@style/Btn.Light"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/btn_app_settings" />
         </LinearLayout>
 
         <!-- Notifications -->

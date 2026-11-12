@@ -57,6 +57,7 @@ object Prefs {
     fun lastSeen(c: Context): Long = p(c).getLong("last_seen", 0L)
     fun lastSyncAt(c: Context): Long = p(c).getLong("last_sync_at", 0L)
     fun lastSyncMessage(c: Context): String = p(c).getString("last_sync_message", "") ?: ""
+    fun lastSyncOk(c: Context): Boolean = p(c).getBoolean("last_sync_ok", true)
     fun reposEtag(c: Context): String? = p(c).getString("repos_etag", null)
     fun lastRepo(c: Context): String? = p(c).getString("last_repo", null)
 
@@ -83,6 +84,7 @@ object Prefs {
         for ((k, v) in repoPushed) o.put(k, v)
         p(c).edit()
             .putBoolean("first_sync_done", true)
+            .putBoolean("last_sync_ok", true)
             .putLong("last_seen", lastSeen)
             .putLong("last_sync_at", System.currentTimeMillis())
             .putString("last_sync_message", message)
@@ -94,6 +96,7 @@ object Prefs {
 
     fun saveSyncFailure(c: Context, message: String) {
         p(c).edit()
+            .putBoolean("last_sync_ok", false)
             .putLong("last_sync_at", System.currentTimeMillis())
             .putString("last_sync_message", message)
             .apply()
@@ -108,7 +111,7 @@ object Prefs {
     fun resetSync(c: Context) {
         p(c).edit()
             .remove("first_sync_done").remove("last_seen").remove("last_sync_at")
-            .remove("last_sync_message").remove("repos_etag").remove("repo_pushed").remove("last_repo")
+            .remove("last_sync_message").remove("last_sync_ok").remove("repos_etag").remove("repo_pushed").remove("last_repo")
             .apply()
     }
 }

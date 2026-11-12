@@ -35,7 +35,7 @@ How a sync works:
 
 If the activity feed cannot be read, sync falls back to the commit list of the default branch, where every commit counts because that list does not say who pushed.
 
-Not yet verified: whether the activity feed answers without a token on public repos. The fallback covers it if not.
+Verified on Android 14 and 15 emulators: with a username and no token, the first sync read the activity feed and hatched a pet with the real streak.
 
 ## First sync
 
@@ -88,9 +88,12 @@ There is no server and no analytics.
 | Pet rules | Unit tests, mirrored in the simulator's tests |
 | Sync parsing, first-sync selection, feeding | Unit tests against sample payloads shaped like the live API |
 | Sprite grids | Unit test |
-| Network sync against real GitHub from a phone | Not tested |
-| Widget, screens, share image | Compile only. Never run on a device |
-| Lock overlay, guard service, boot behaviour | Compile only. Never run on a device |
+| Real GitHub sync with a username and no token | Passes on Android 14 and 15 emulators in CI |
+| Screens, widget, share image, notifications | Driven and screenshotted on both emulators in CI |
+| Lock: overlay over a chosen app, check-now, back to home, re-lock, mercy unlock | Passes on both emulators in CI |
+| Reboot: guard and sync job come back | Passes on both emulators in CI |
+| Sync with a token, private repos | Not tested |
+| A real phone, especially Xiaomi, Oppo, Vivo and Samsung battery managers | Not tested. These can stop background services that stock Android leaves alone |
 
 ## Known gaps
 
@@ -100,5 +103,6 @@ There is no server and no analytics.
 | Pushes to repos outside your 15 most recent | Not seen until that repo moves up the list |
 | Gaming with empty pushes | Allowed. The rules reward any push |
 | Shared repos | Only your own pushes count, because activity is filtered to your username |
+| Test lab and the pet clock | Skipping time moves the pet clock ahead of real time. Real pushes are moved by the same amount, so they still feed the pet |
 | Play Store | Not submitted. A blocker app needs a policy review of the usage access, overlay and special-use service declarations |
 | iOS | Not started |

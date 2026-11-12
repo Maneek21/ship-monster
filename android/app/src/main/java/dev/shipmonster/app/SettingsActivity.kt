@@ -3,6 +3,8 @@ package dev.shipmonster.app
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -34,6 +36,13 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.btn_usage).setOnClickListener { open { startActivity(LockAccess.usageAccessIntent()) } }
         findViewById<Button>(R.id.btn_overlay).setOnClickListener { open { startActivity(LockAccess.overlayIntent(this)) } }
         findViewById<Button>(R.id.btn_apps).setOnClickListener { chooseApps() }
+        findViewById<Button>(R.id.btn_app_settings).setOnClickListener {
+            open {
+                startActivity(
+                    Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+                )
+            }
+        }
 
         findViewById<Button>(R.id.btn_commit).setOnClickListener { fakeShip(false) }
         findViewById<Button>(R.id.btn_merge).setOnClickListener { fakeShip(true) }

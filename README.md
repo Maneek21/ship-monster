@@ -2,7 +2,7 @@
 
 A pet that lives on your Android home screen and eats your commits. Stop shipping and it turns into a monster that locks your distraction apps. Leave it a monster too long and it dies.
 
-**Status: v0.2, feature complete but untested on a real phone.** Everything compiles and the logic has unit tests. Nobody has run it on a device yet, so expect rough edges in the screens and the lock.
+**Status: v0.2, feature complete, tested on emulators, not yet on a real phone.** Every push is installed on Android 14 and 15 emulators and driven through sync, the lock, mercy unlock, the widget, sharing and a reboot. Phone makers' battery managers are the main unknown.
 
 ## What it does
 
@@ -28,7 +28,8 @@ How it works and why it is built this way: [docs/DESIGN.md](docs/DESIGN.md).
 | `android/` | The Android app, in Kotlin. No UI framework, one small AndroidX dependency |
 | `simulator/` | Browser simulator: a fake home screen with the widget, monster lock and mercy unlock, driven by buttons |
 | `docs/` | Design notes |
-| `.github/workflows/android.yml` | Runs the unit tests and builds a debug APK on every push that touches `android/` |
+| `ci/device_test.py` | Drives the APK on an emulator and checks the main flows |
+| `.github/workflows/android.yml` | Unit tests, debug APK, lint, then the emulator runs on Android 14 and 15 |
 
 ## The rules
 
@@ -77,7 +78,7 @@ python3 build.py        # writes index.html, open it in a browser
 
 ## Next
 
-1. Run it on real phones and fix what breaks
+1. Run it on real phones, especially ones with aggressive battery managers, and fix what breaks
 2. Sign in with GitHub instead of pasting a token
 3. Play Store submission, which needs a policy review for a blocker app
 4. A proper release signing key
