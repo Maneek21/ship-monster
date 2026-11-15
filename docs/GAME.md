@@ -162,8 +162,9 @@ Lines are pre-written and chosen offline. No AI at runtime.
 |---|---|
 | Voice | Needy, Gremlin, Anxious, Deadpan, Sleepy, Smug, Noble, Cryptic |
 | Size | Tiny (stages 1 to 2) speaks in lower case. Mid (3 to 5) as written. Giant (6 to 8) speaks in capitals |
-| Situation | Idle states (fed, restless, feral, rest day, hibernating, night, morning), events (fed, merged, egg, hatched, evolved, dropped a stage, treat, favourite food, feast, CI red, CI green again, streak milestone, level up, came back, poked, benched, statue, revived, fall, pantry low, new day) |
-| Variables | The monster's name, streak, hours since the last ship, the locked app, chow |
+| Situation | Idle: fed, hungry, restless, feral, rest day, hibernating, night, morning, streak pride, CI red, pantry low, egg. Events: fed by a push, merged, hatched, grew, shrank, treat, favourite treat, no treats left, feast, calmed, streak milestone, level up, poked, benched, woken from stone, truce, new egg, twin, the lock screen |
+| Conditions | A line can be limited to a size, a species, a minimum streak or a number of stars |
+| Variables | The monster's name, streak, awake hours since the last ship, hours to the next change, the locked app, chow |
 
 Selection: the lines that fit the situation, voice and conditions form a cycle. Lines written for that voice or condition come round twice as often as generic ones, and the same line never appears twice in a row. The choice is a pure function of a seed, so the home screen and the widget always agree. The lead monster speaks on the home screen, the widget, notifications and the lock screen.
 

@@ -116,11 +116,11 @@ class Grid:
 # ---------------------------------------------------------------- bodies
 
 WIDTH = {
-    "blob":  [8, 10, 12, 15, 18, 21, 24, 26],
-    "chunk": [7, 9, 11, 14, 16, 19, 22, 24],
-    "tall":  [6, 8, 10, 12, 14, 16, 18, 20],
-    "wide":  [9, 11, 14, 17, 20, 23, 26, 28],
-    "wyrm":  [7, 9, 11, 13, 16, 19, 22, 24],
+    "blob":  [8, 10, 12, 15, 18, 21, 23, 25],
+    "chunk": [7, 9, 11, 14, 16, 19, 21, 23],
+    "tall":  [6, 8, 10, 12, 14, 16, 18, 19],
+    "wide":  [9, 11, 14, 17, 20, 22, 24, 25],
+    "wyrm":  [7, 9, 11, 13, 16, 19, 21, 23],
 }
 HEIGHT_F = {"blob": 0.9, "chunk": 0.95, "tall": 1.22, "wide": 0.66, "wyrm": 1.0}
 
@@ -240,8 +240,8 @@ def behind(g, sp, body, s, pal):
         for side in (-1, 1):
             ex = (L - 1) if side < 0 else (R + 1)
             g.tri(ex, mid - k, ex + side * (k + 1), mid - k - 1, ex, mid + 1, f)
-    if sp == "gloomfang" and s >= 4:                     # bat wings
-        k = 3 + (s - 4)
+    if sp == "gloomfang" and s >= 4:                     # bat wings, kept inside the frame
+        k = min(3 + (s - 4), int(body.left) - 1)
         for side in (-1, 1):
             ex = (L + 1) if side < 0 else (R - 1)
             tipx = ex + side * (k + 1)
@@ -414,6 +414,19 @@ def on_top(g, sp, body, s, pal):
                 g.set(hx + dx, t + dy, f2)
                 g.set(hx + dx + 1, t + dy, f)
     elif sp == "voidling":
+        if s >= 2:                                      # crescent horns
+            k = 1 + s // 2
+            for side in (-1, 1):
+                ex = hx + side * max(1, int(w * 0.22))
+                ey = body.head_top(ex)
+                g.line(ex, ey, ex + side * (k // 2 + 1), ey - k, pal["base"])
+                g.line(ex + side, ey, ex + side * (k // 2 + 2), ey - k + 1, pal["light"])
+                g.set(ex + side * (k // 2), ey - k - 1, f)
+        if s >= 4:                                      # a halo
+            r = max(2, int(w * 0.3))
+            for dx in range(-r, r + 1):
+                if abs(dx) != r or s >= 6:
+                    g.set(hx + dx, ht - 3 - (1 if abs(dx) < r else 0) - s // 3, f2 if dx % 2 == 0 else f)
         if s >= 5:
             orbs = [(-1, 0.25), (1, 0.6)] if s < 8 else [(-1, 0.2), (1, 0.45), (-1, 0.8)]
             for side, fr in orbs:
@@ -705,6 +718,9 @@ def draw_face(g, sp, body, s, mood, pal):
         if mk == "underbite":
             g.set(mx, base_y - 1, WHITE)
             g.set(mx + mw - 1, base_y - 1, WHITE)
+        if s >= 6 and mk in ("smile", "flat") and mw >= 5:      # big ones show a little tooth
+            g.set(mx + 1, base_y + 1, WHITE)
+            g.set(mx + mw - 2, base_y + 1, WHITE)
         if mk == "grin" and mw >= 3:
             for i in range(1, mw - 1, 2):
                 g.set(mx + i, base_y - 1 if mw < 5 else base_y, WHITE)
@@ -752,6 +768,28 @@ def to_feral(g, pal):
                 g.px[y][x] = d
 
 
+def elder(g, sp, body, s, pal):
+    """Marks every species earns late: stripes from Colossus, sparks around a Titan."""
+    if s >= 7 and body.family != "wyrm" and sp not in ("voidling", "gravelkin"):
+        for side in (-1, 1):
+            for i in range(2 + (s - 7)):
+                y = int(body.top + body.h * (0.42 + 0.13 * i))
+                r = body.row(y)
+                if not r:
+                    continue
+                x = r[0] if side < 0 else r[1]
+                for j in range(2 + (1 if s == 8 else 0)):
+                    if (x - side * j, y) in body.mask:
+                        g.set(x - side * j, y, pal["shade"] if g.get(x - side * j, y) != pal["shade"] else pal["outline"])
+    if s == 8 and sp not in ("voidling", "frostnip", "sunmaw"):
+        spark = pal["feat2"] if pal["feat2"] != pal["base"] else pal["light"]
+        for (dx, dy) in ((-2, 0.18), (1, 0.05), (-1, 0.62), (2, 0.5)):
+            x = int(body.left + dx) if dx < 0 else int(body.right + dx - 1)
+            y = int(body.top + body.h * dy)
+            if 0 <= x < N and g.get(x, y) is None:
+                g.set(x, y, spark)
+
+
 def make(sp, s, mood):
     cfg = SPECIES[sp]
     pal = cfg["pal"]
@@ -759,6 +797,7 @@ def make(sp, s, mood):
     g = Grid()
     behind(g, sp, body, s, pal)
     paint_body(g, sp, body, s, pal)
+    elder(g, sp, body, s, pal)
     on_top(g, sp, body, s, pal)
     if mood == "feral":
         to_feral(g, pal)
