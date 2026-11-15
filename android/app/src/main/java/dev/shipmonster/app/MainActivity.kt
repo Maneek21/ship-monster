@@ -12,6 +12,7 @@ import android.os.Looper
 import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -25,6 +26,7 @@ import dev.shipmonster.app.core.Engine
 import dev.shipmonster.app.core.Flavor
 import dev.shipmonster.app.core.Game
 import dev.shipmonster.app.core.Hatch
+import dev.shipmonster.app.core.LogEntry
 import dev.shipmonster.app.core.Monster
 import dev.shipmonster.app.core.Mood
 import dev.shipmonster.app.core.Rules
@@ -53,6 +55,7 @@ class MainActivity : Activity() {
     private var saidUntil = 0L
     private var syncing = false
     private var reveal: Hatch? = null
+    private var news: List<LogEntry> = emptyList()
     private val scrolls = IntArray(4)
     private var scroller: ScrollView? = null
 
@@ -83,6 +86,11 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         PetRuntime.refresh(this)
+        val seen = Prefs.newsSeen(this)
+        if (seen > 0 && Prefs.onboarded(this)) {
+            val fresh = GameStore.load(this).log.filter { it.at > seen }
+            if (fresh.isNotEmpty()) news = (fresh + news).distinctBy { it.at.toString() + it.text }.take(30)
+        }
         SyncJobService.schedule(this)
         handler.removeCallbacks(ticker)
         handler.post(ticker)
@@ -93,6 +101,8 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(hush)
+        Prefs.setNewsSeen(this, GameStore.now(this))
     }
 
     @Deprecated("Deprecated in Java")
@@ -110,6 +120,14 @@ class MainActivity : Activity() {
     private fun say(text: String) {
         said = text
         saidUntil = System.currentTimeMillis() + 6000
+        handler.removeCallbacks(hush)
+        handler.postDelayed(hush, 6100)
+    }
+
+    private val hush = Runnable { if (tab == 0) render() }
+
+    private fun buzz(strong: Boolean = false) {
+        content.performHapticFeedback(if (strong) HapticFeedbackConstants.LONG_PRESS else HapticFeedbackConstants.VIRTUAL_KEY)
     }
 
     private fun line(g: Game, situation: String, m: Monster?): String =
@@ -146,6 +164,7 @@ class MainActivity : Activity() {
         val g = GameStore.load(this)
         val m = g.monster(id) ?: return
         focusId = id
+        buzz()
         say(line(g, "poke", m))
         render()
     }
@@ -344,6 +363,7 @@ class MainActivity : Activity() {
                     } else {
                         GameStore.edit(this) { game, _ -> Engine.pickStarter(game, p) }
                         Prefs.setOnboarded(this, true)
+                        Prefs.setNewsSeen(this, GameStore.now(this))
                         tab = 0
                         render()
                         sync(true)
@@ -394,6 +414,8 @@ class MainActivity : Activity() {
         bubble.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10))
         bubble.contentDescription = "speech"
         page.addView(bubble, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
+
+        if (news.isNotEmpty()) page.addView(newsCard())
 
         if (g.needsStarter) {
             val card = Ui.card(this)
@@ -524,6 +546,27 @@ class MainActivity : Activity() {
             page.addView(c)
         }
         return page
+    }
+
+    /** What changed since the app was last open: ships rolled up into one line, everything else listed. */
+    private fun newsCard(): View {
+        val c = Ui.card(this)
+        c.setBackgroundResource(R.drawable.tile_on)
+        c.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14))
+        c.addView(Ui.h(this, "While you were away").apply { contentDescription = "news" })
+        val pushes = news.count { it.kind == "push" }
+        val merges = news.count { it.kind == "merge" }
+        if (pushes + merges > 0) {
+            val parts = ArrayList<String>()
+            if (pushes > 0) parts.add(if (pushes == 1) "1 push" else "$pushes pushes")
+            if (merges > 0) parts.add(if (merges == 1) "1 merged pull request" else "$merges merged pull requests")
+            c.addView(Ui.text(this, parts.joinToString(" and ") + " fed the horde.", 13f), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+        }
+        for (e in news.filter { it.kind != "push" && it.kind != "merge" }.take(6)) {
+            c.addView(Ui.text(this, e.text, 13f), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+        }
+        c.addView(Ui.button(this, "Got it", Ui.LIGHT) { news = emptyList(); render() })
+        return c
     }
 
     /** Name, belly, growth and favourite flavour of one monster. */
@@ -747,6 +790,7 @@ class MainActivity : Activity() {
                     contentDescription = "egg $i"
                     setOnClickListener {
                         val h = GameStore.edit(this@MainActivity) { game, t -> Engine.tapEgg(game, i, t) }
+                        buzz(h != null)
                         if (h != null) {
                             reveal = h
                             scrolls[2] = 0

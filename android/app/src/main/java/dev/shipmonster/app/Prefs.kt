@@ -52,6 +52,8 @@ object Prefs {
     fun setOnboarded(c: Context, v: Boolean) = p(c).edit().putBoolean("onboarded", v).apply()
     fun hintDone(c: Context, key: String): Boolean = p(c).getBoolean("hint_$key", false)
     fun setHintDone(c: Context, key: String) = p(c).edit().putBoolean("hint_$key", true).apply()
+    fun newsSeen(c: Context): Long = p(c).getLong("news_seen", 0L)
+    fun setNewsSeen(c: Context, v: Long) = p(c).edit().putLong("news_seen", v).apply()
     fun lastStatus(c: Context): String = p(c).getString("last_status", "") ?: ""
     fun setLastStatus(c: Context, v: String) = p(c).edit().putString("last_status", v).apply()
 

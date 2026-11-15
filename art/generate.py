@@ -894,6 +894,41 @@ def sheet(sp):
     return im
 
 
+def write_launcher_icon(sp, stage, mood):
+    """The adaptive icon foreground: one monster as a vector, pixel for pixel."""
+    im = make(sp, stage, mood)
+    box = im.getbbox()
+    w, h = box[2] - box[0], box[3] - box[1]
+    scale = 60 // max(w, h)
+    ox = (108 - w * scale) / 2.0
+    oy = (108 - h * scale) / 2.0
+    by_colour = {}
+    for y in range(box[1], box[3]):
+        x = box[0]
+        while x < box[2]:
+            px = im.getpixel((x, y))
+            if px[3] == 0:
+                x += 1
+                continue
+            run = 1
+            while x + run < box[2] and im.getpixel((x + run, y)) == px:
+                run += 1
+            by_colour.setdefault(px[:3], []).append((x - box[0], y - box[1], run))
+            x += run
+    out = ['<?xml version="1.0" encoding="utf-8"?>',
+           '<!-- Written by art/generate.py. Do not edit by hand. -->',
+           '<vector xmlns:android="http://schemas.android.com/apk/res/android"',
+           '    android:width="108dp"', '    android:height="108dp"',
+           '    android:viewportWidth="108"', '    android:viewportHeight="108">']
+    for colour, runs in sorted(by_colour.items()):
+        d = "".join("M%g,%gh%gv%gh-%gz" % (ox + x * scale, oy + y * scale, n * scale, scale, n * scale) for (x, y, n) in runs)
+        out.append('    <path android:fillColor="#%02X%02X%02X" android:pathData="%s" />' % (colour[0], colour[1], colour[2], d))
+    out.append('</vector>')
+    path = os.path.join(HERE, "..", "android", "app", "src", "main", "res", "drawable", "ic_launcher_fg.xml")
+    with open(path, "w") as f:
+        f.write("\n".join(out) + "\n")
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     for sp in ORDER:
@@ -907,6 +942,8 @@ def main():
     for i, name in enumerate(ICONS):
         icons.paste(icon(name), (i * N, 0))
     icons.save(os.path.join(OUT, "icons.png"))
+
+    write_launcher_icon("mossback", 6, "happy")
 
     if "--preview" in sys.argv:
         os.makedirs(PREVIEW, exist_ok=True)
