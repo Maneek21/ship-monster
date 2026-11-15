@@ -150,7 +150,7 @@ class MainActivity : Activity() {
                 syncing = false
                 if (out.fed > 0) {
                     val g = GameStore.load(this)
-                    say(line(g, "fedpush", g.lead))
+                    say(line(g, out.situation, g.lead))
                     den.joy()
                 }
                 PetRuntime.refresh(this)
@@ -719,7 +719,12 @@ class MainActivity : Activity() {
             render()
         }
         when {
-            m.stone -> act.addView(Ui.button(this, "Wake from stone (1 gem)") { change({ game, t -> Engine.revive(game, m.id, t) }, "You need a gem for that.") })
+            m.stone -> act.addView(Ui.button(this, "Wake from stone (1 gem)") {
+                val ok = GameStore.edit(this) { game, t -> Engine.revive(game, m.id, t) }
+                if (ok) toast("${m.name}: \"${line(GameStore.load(this), "revived", m)}\"") else toast("You need a gem for that.")
+                PetRuntime.refresh(this)
+                render()
+            })
             m.id in g.party -> {
                 if (g.party.firstOrNull() != m.id) act.addView(Ui.button(this, "Make lead") { change({ game, _ -> Engine.makeLead(game, m.id) }, "") })
                 act.addView(Ui.button(this, "Send to the den", Ui.LIGHT) { change({ game, _ -> Engine.toDen(game, m.id) }, "The last monster in the party has to stay.") })
@@ -775,6 +780,8 @@ class MainActivity : Activity() {
                 else -> "${m.name} already has every star, so the egg came with ${r.chow} chow instead."
             }
             c.addView(Ui.body(this, detail), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            val quote = GameStore.lines(this).say(if (r.isNew) "hatched" else "star", g.monster(m.id) ?: m, g, m.id * 7L + m.stars)
+            c.addView(Ui.text(this, "\"$quote\"", 15f, R.color.ink, bold = true).apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
             c.addView(Ui.button(this, "Meet ${m.name}") { reveal = null; detailId = m.id; tab = 1; scrolls[1] = 0; render() })
             page.addView(c)
         }

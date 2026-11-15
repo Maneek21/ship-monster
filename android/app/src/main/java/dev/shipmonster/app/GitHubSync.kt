@@ -6,7 +6,8 @@ import android.util.Log
 import java.io.IOException
 import java.time.Instant
 
-class SyncOutcome(val message: String, val fed: Int, val ok: Boolean)
+/** [situation] is the dialogue situation that best sums up what the sync brought. */
+class SyncOutcome(val message: String, val fed: Int, val ok: Boolean, val situation: String = "fedpush")
 
 /**
  * Pulls new pushes and merges from GitHub and feeds the pet.
@@ -107,6 +108,13 @@ object GitHubSync {
         val newest = events.maxOfOrNull { it.time } ?: 0L
         val marker = if (first) maxOf(newest, realNow - 5 * 60 * 1000L) else maxOf(lastSeen, newest)
         Prefs.saveSync(c, marker, message, etag, pushedMap, ciRepo)
-        return SyncOutcome(message, summary.fed, true)
+        val situation = when {
+            summary.hatched != null -> "hatched"
+            summary.calmed -> "calmed"
+            summary.evolved != null -> "evolved"
+            summary.merges > 0 -> "merged"
+            else -> "fedpush"
+        }
+        return SyncOutcome(message, summary.fed, true, situation)
     }
 }

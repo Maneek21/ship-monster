@@ -84,7 +84,7 @@ object Notifier {
                 Ev.CALMED -> "The horde is calm again" to "$name: \"${bank.say("calmed", m, g, seed)}\""
                 Ev.EVOLVED -> "$name grew into a ${Rules.STAGE_NAMES[e.n]}" to "\"${bank.say("evolved", m, g, seed)}\""
                 Ev.HATCHED -> "$name hatched" to "\"${bank.say("hatched", m, g, seed)}\""
-                Ev.BENCHED -> "$name went to the den" to "It went hungry for a full day. Ship more, or keep a smaller party."
+                Ev.BENCHED -> "$name went to the den" to "\"${bank.say("benched", m, g, seed)}\" It went hungry for a full day. Ship more, or keep a smaller party."
                 Ev.MILESTONE -> "${e.n}-day streak" to "The horde is impressed. A gem is waiting in the nest."
                 else -> null
             }
