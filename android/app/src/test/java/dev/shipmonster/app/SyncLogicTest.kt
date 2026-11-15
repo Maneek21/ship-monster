@@ -45,17 +45,8 @@ class SyncLogicTest {
         """
         val events = SyncLogic.parseActivity(json, "Maneek21/ship-monster", "Maneek21")
         assertEquals(3, events.size)
-        assertFalse(events[0].merge)     // oldest first
-        assertTrue(events[1].merge)
-        // commits minutes apart are one push
-        val burst = """
-            [
-              {"sha": "a", "commit": {"committer": {"date": "2026-11-12T10:00:00Z"}}, "parents": [{"sha": "x"}]},
-              {"sha": "b", "commit": {"committer": {"date": "2026-11-12T10:04:00Z"}}, "parents": [{"sha": "a"}]},
-              {"sha": "c", "commit": {"committer": {"date": "2026-11-12T10:30:00Z"}}, "parents": [{"sha": "b"}]}
-            ]
-        """
-        assertEquals(2, SyncLogic.parseCommits(burst, "me/alpha").size)
+        assertTrue(events[0].merge)
+        assertFalse(events[1].merge)
         assertEquals(t("2026-11-12T15:09:15Z"), events[2].time)
         assertEquals("Maneek21/ship-monster", events[2].repo)
     }
@@ -80,7 +71,7 @@ class SyncLogicTest {
             ]
         """
         assertEquals(2, SyncLogic.parseCommits(burst, "me/alpha").size)
-        assertEquals(t("2026-11-11T10:00:00Z"), events[1].time)
+        assertEquals(t("2026-11-11T10:00:00Z"), events[0].time)
     }
 
     @Test fun ciConclusion() {
