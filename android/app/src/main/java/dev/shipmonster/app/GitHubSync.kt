@@ -1,6 +1,7 @@
 package dev.shipmonster.app
 
 import android.content.Context
+import dev.shipmonster.app.core.Ev
 import android.util.Log
 import java.io.IOException
 import java.time.Instant
@@ -83,25 +84,28 @@ object GitHubSync {
             pushedMap[r.fullName] = r.pushedAt
         }
 
-        val s = PetStore.load(c)
         val fresh = if (first) SyncLogic.firstSyncWindow(events, realNow) else SyncLogic.newEvents(events, lastSeen)
-        // The pet clock is real time plus whatever the test lab skipped, so real events are moved by the same amount.
-        val offset = PetStore.clockOffset(c)
+        // The game clock is real time plus whatever the test lab skipped, so real events are moved by the same amount.
+        val offset = GameStore.clockOffset(c)
         val toApply = fresh.map { it.copy(time = it.time + offset) }
-        val summary = SyncLogic.apply(s, toApply, PetStore.tzOffset(realNow), backdate = first)
+        var wasRed = false
+        val (summary, message) = GameStore.edit(c) { g, _ ->
+            wasRed = g.ciRed
+            val sum = SyncLogic.apply(g, toApply, GameStore.tz(realNow), backdate = first)
+            sum to SyncLogic.message(sum, g, first)
+        }
+        if (summary.events.isNotEmpty() && !first) Notifier.onEvents(c, GameStore.load(c), summary.events.filter { it.kind != Ev.HATCHED })
         Log.i(TAG, "sync first=$first repos=${repos.size} checked=${candidates.size} events=${events.size} applied=${summary.fed}")
 
-        // CI health of the repo shipped to most recently. A red build makes the pet sick.
+        // CI health of the repo shipped to most recently. A red build shows up in what the monsters say.
         val ciRepo = toApply.lastOrNull()?.repo ?: Prefs.lastRepo(c)
-        if (ciRepo != null && s.pet.deadAt == null && (toApply.isNotEmpty() || s.pet.ciFailing)) {
+        if (ciRepo != null && (toApply.isNotEmpty() || wasRed)) {
             val runs = GitHubApi.get("/repos/$ciRepo/actions/runs?per_page=1&status=completed", token)
-            if (runs.code == 200) SyncLogic.parseCiFailing(runs.body)?.let { s.pet.ciFailing = it }
+            if (runs.code == 200) SyncLogic.parseCiFailing(runs.body)?.let { red -> GameStore.edit(c) { g, _ -> g.ciRed = red } }
         }
-        PetStore.save(c, s)
 
         val newest = events.maxOfOrNull { it.time } ?: 0L
         val marker = if (first) maxOf(newest, realNow - 5 * 60 * 1000L) else maxOf(lastSeen, newest)
-        val message = SyncLogic.message(summary, s, first)
         Prefs.saveSync(c, marker, message, etag, pushedMap, ciRepo)
         return SyncOutcome(message, summary.fed, true)
     }

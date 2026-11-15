@@ -1,6 +1,9 @@
 package dev.shipmonster.app
 
 import android.app.Service
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Game
+import dev.shipmonster.app.core.Rules
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.BroadcastReceiver
@@ -39,7 +42,7 @@ class LockService : Service() {
     private var lastQuery = 0L
     private val seenEvents = LinkedHashSet<String>()
     private var screenOn = true
-    private var lastStatus: Status? = null
+    private var lastStatus: Boolean? = null
     private var lastSyncKick = 0L
     private var mercyArmedUntil = 0L
     private var checking = false
@@ -113,22 +116,22 @@ class LockService : Service() {
             stopSelf()
             return
         }
-        val now = PetStore.now(this)
-        val s = PetStore.load(this)
-        val st = PetEngine.status(s, now)
+        val now = GameStore.now(this)
+        val s = GameStore.load(this)
+        val st = Engine.lockActive(s, now)
         if (st != lastStatus) {
             val firstLook = lastStatus == null
             lastStatus = st
             if (!firstLook) PetRuntime.refresh(this)
         }
 
-        if (st != Status.MONSTER) {
+        if (!st) {
             hideOverlay()
             foreground = null
             lastQuery = 0L
             seenEvents.clear()
-            val next = PetEngine.hoursToNext(s, now)
-            val wait = if (next == null) IDLE_MS else minOf(IDLE_MS, (next * PetEngine.H).toLong() + 1_000)
+            val next = Engine.nextWakeAt(s, now, GameStore.tz(now)) - now
+            val wait = minOf(IDLE_MS, next)
             handler.postDelayed(loop, maxOf(1_000L, wait))
             return
         }
@@ -186,7 +189,7 @@ class LockService : Service() {
         return foreground
     }
 
-    private fun showOverlay(pkg: String, s: PetState, now: Long) {
+    private fun showOverlay(pkg: String, s: Game, now: Long) {
         var v = overlay
         if (v == null) {
             val themed = ContextThemeWrapper(this, R.style.Theme_ShipMonster)
@@ -198,9 +201,9 @@ class LockService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             )
-            v.findViewById<ImageView>(R.id.lock_pet).setImageBitmap(Sprites.forState(s, now, 24))
             v.findViewById<Button>(R.id.lock_home).setOnClickListener { goHome() }
             v.findViewById<Button>(R.id.lock_check).setOnClickListener { checkNow(silent = false) }
+            v.findViewById<Button>(R.id.lock_truce).setOnClickListener { truce() }
             v.findViewById<Button>(R.id.lock_mercy).setOnClickListener { mercy() }
             v.isFocusableInTouchMode = true
             v.setOnKeyListener { _, code, ev ->
@@ -223,17 +226,26 @@ class LockService : Service() {
             mercyArmedUntil = 0L
         }
         overlayPkg = pkg
-        val name = s.pet.name
+        val lead = s.lead
         val app = LockAccess.labelOf(this, pkg)
+        if (lead != null) {
+            v.findViewById<ImageView>(R.id.lock_pet)
+                .setImageBitmap(Art.scaled(Art.frame(this, lead.species, lead.stage, Art.FERAL), 8))
+        }
+        val said = GameStore.lines(this).say("lock", lead, s, pkg.hashCode().toLong() + s.lastShipAt / 60_000, app)
         v.findViewById<TextView>(R.id.lock_text).text =
-            "$app is closed. $name has not eaten in ${PetText.dur(PetEngine.hoursSinceFed(s, now))}. Push a commit and it turns back."
-        v.findViewById<TextView>(R.id.lock_count).text =
-            "Dies in ${PetText.dur(PetEngine.hoursToNext(s, now) ?: 0.0)}"
+            "${lead?.name ?: "The horde"}: \"$said\"\n\nNo ship in ${Fmt.hours((s.idleMs / Rules.H).toInt())}. Push a commit or merge a pull request and the lock lifts."
+        v.findViewById<TextView>(R.id.lock_count).text = "The horde falls in ${Fmt.hours(Engine.hoursToNext(s))}"
         val noteView = v.findViewById<TextView>(R.id.lock_note)
         noteView.text = if (checking) "Checking GitHub..." else (note ?: "")
+        val truce = v.findViewById<Button>(R.id.lock_truce)
+        truce.visibility = if (s.truceUsed) View.GONE else View.VISIBLE
+        truce.text = if (s.gems > 0) "Truce: 12 hours for 1 gem (you have ${s.gems})" else "Truce costs 1 gem. You have none."
+        truce.isEnabled = s.gems > 0
         val armed = System.currentTimeMillis() < mercyArmedUntil
-        v.findViewById<Button>(R.id.lock_mercy).text = if (armed) "Tap again. $name will die." else "Mercy unlock"
-        v.findViewById<TextView>(R.id.lock_fine).text = "Mercy unlock opens $app now and kills $name."
+        v.findViewById<Button>(R.id.lock_mercy).text = if (armed) "Tap again. The horde will fall." else "Surrender"
+        v.findViewById<TextView>(R.id.lock_fine).text =
+            "Surrender opens $app now. Commons in your party leave for good and the rest turn to stone."
     }
 
     private fun hideOverlay() {
@@ -295,10 +307,18 @@ class LockService : Service() {
             return
         }
         mercyArmedUntil = 0L
-        val now = PetStore.now(this)
-        val s = PetStore.load(this)
-        if (PetEngine.mercy(s, now)) {
-            PetStore.save(this, s)
+        val fell = GameStore.edit(this) { g, now -> Engine.surrender(g, now).isNotEmpty() }
+        if (fell) {
+            hideOverlay()
+            PetRuntime.refresh(this)
+        }
+        handler.removeCallbacks(loop)
+        handler.post(loop)
+    }
+
+    private fun truce() {
+        val ok = GameStore.edit(this) { g, now -> Engine.truce(g, now) }
+        if (ok) {
             hideOverlay()
             PetRuntime.refresh(this)
         }

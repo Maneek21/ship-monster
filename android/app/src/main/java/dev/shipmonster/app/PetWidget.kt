@@ -7,9 +7,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
-import android.os.Build
-import android.view.View
 import android.widget.RemoteViews
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Mood
+import dev.shipmonster.app.core.Rules
 
 /** The home screen widget. The system refreshes it every 30 minutes; the app refreshes it on every change. */
 class PetWidget : AppWidgetProvider() {
@@ -27,50 +28,58 @@ class PetWidget : AppWidgetProvider() {
         }
 
         private fun build(context: Context): RemoteViews {
-            val now = PetStore.now(context)
-            val s = PetStore.load(context)
-            val st = PetEngine.status(s, now)
-            val monster = st == Status.MONSTER
-            val v = RemoteViews(context.packageName, R.layout.widget_pet)
+            val g = GameStore.load(context)
+            val now = GameStore.now(context)
+            val tz = GameStore.tz(now)
+            val mood = Engine.mood(g)
+            val feral = mood == Mood.FERAL
+            val lead = g.lead
+            val views = RemoteViews(context.packageName, R.layout.widget_pet)
+            views.setInt(R.id.widget_root, "setBackgroundResource", if (feral) R.drawable.widget_bg_monster else R.drawable.widget_bg)
 
-            v.setImageViewBitmap(R.id.pet_image, Sprites.forState(s, now, 16))
-            v.setTextViewText(R.id.pet_name, PetText.title(s, now))
-            v.setTextViewText(R.id.pet_state, PetText.pill(s, now))
-            v.setTextViewText(R.id.pet_meta, PetText.meta(s, now))
+            val ink = context.getColor(if (feral) R.color.on_monster else R.color.ink)
+            val soft = context.getColor(if (feral) R.color.on_monster_soft else R.color.ink_soft)
+            views.setTextColor(R.id.pet_name, ink)
+            views.setTextColor(R.id.pet_say, ink)
+            views.setTextColor(R.id.pet_meta, soft)
 
-            v.setInt(R.id.widget_root, "setBackgroundResource", if (monster) R.drawable.widget_bg_monster else R.drawable.widget_bg)
-            v.setTextColor(R.id.pet_name, context.getColor(if (monster) R.color.on_monster else R.color.ink))
-            v.setTextColor(R.id.pet_meta, context.getColor(if (monster) R.color.on_monster_soft else R.color.ink_soft))
-            v.setTextColor(R.id.pet_state, context.getColor(stateColor(s, st)))
-
-            val showBelly = st != Status.EGG && st != Status.DEAD
-            v.setViewVisibility(R.id.pet_belly, if (showBelly) View.VISIBLE else View.GONE)
-            val full = PetEngine.fullness(s, now)
-            v.setProgressBar(R.id.pet_belly, 100, Math.round(full * 100).toInt(), false)
-            if (Build.VERSION.SDK_INT >= 31) {
-                v.setColorStateList(R.id.pet_belly, "setProgressTintList", ColorStateList.valueOf(context.getColor(bellyColor(full))))
+            if (lead == null) {
+                val egg = g.starter
+                views.setImageViewBitmap(R.id.pet_image,
+                    Art.scaled(if (egg != null) Art.egg(context, egg, 0) else Art.egg(context, "mossback", 3), 6))
+                views.setTextViewText(R.id.pet_name, if (egg != null) "An egg" else "Ship Monster")
+                views.setTextViewText(R.id.pet_say, if (egg != null) "Hatches on your next push." else "Open the app to pick an egg.")
+                views.setProgressBar(R.id.pet_belly, 100, 0, false)
+                views.setTextViewText(R.id.pet_meta, "")
+            } else {
+                val hour = Rules.localHour(now, tz)
+                val asleep = Engine.hibernating(g, now) || hour >= 23 || hour < 5
+                views.setImageViewBitmap(R.id.pet_image,
+                    Art.scaled(Art.frame(context, lead.species, lead.stage, Art.variantFor(g, lead, asleep)), 6))
+                views.setTextViewText(R.id.pet_name, lead.title)
+                views.setTextViewText(R.id.pet_say, "\"" + GameStore.lines(context).idle(g, now, tz) + "\"")
+                views.setProgressBar(R.id.pet_belly, 100, lead.belly.toInt(), false)
+                if (android.os.Build.VERSION.SDK_INT >= 31) views.setColorStateList(R.id.pet_belly, "setProgressTintList",
+                    ColorStateList.valueOf(context.getColor(stateColor(mood))))
+                val state = when (mood) {
+                    Mood.FERAL -> "FERAL. Falls in ${Fmt.hours(Engine.hoursToNext(g))}"
+                    Mood.RESTLESS -> "Feral in ${Fmt.hours(Engine.hoursToNext(g))}"
+                    else -> "Day ${g.streak}"
+                }
+                views.setTextViewText(R.id.pet_meta, "$state  |  ${g.pantry} chow  |  ${g.gems} gems")
             }
-
             val open = PendingIntent.getActivity(
                 context, 0, Intent(context, MainActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            v.setOnClickPendingIntent(R.id.widget_root, open)
-            return v
+            views.setOnClickPendingIntent(R.id.widget_root, open)
+            return views
         }
 
-        fun bellyColor(fullness: Double): Int = when {
-            fullness > 0.5 -> R.color.ok
-            fullness > 0.0 -> R.color.warn
-            else -> R.color.bad
-        }
-
-        fun stateColor(s: PetState, st: Status): Int = when (st) {
-            Status.EGG -> R.color.ink_soft
-            Status.HAPPY -> if (s.pet.ciFailing) R.color.warn else R.color.ok
-            Status.HUNGRY -> R.color.warn
-            Status.MONSTER -> R.color.monster
-            Status.DEAD -> R.color.ink_soft
+        fun stateColor(mood: Mood): Int = when (mood) {
+            Mood.FERAL -> R.color.bad
+            Mood.RESTLESS -> R.color.warn
+            else -> R.color.ok
         }
     }
 }

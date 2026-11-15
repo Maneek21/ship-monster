@@ -6,19 +6,19 @@
     android:background="@drawable/widget_bg"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="12dp">
+    android:padding="10dp">
 
     <ImageView
         android:id="@+id/pet_image"
-        android:layout_width="84dp"
-        android:layout_height="84dp"
-        android:contentDescription="@string/pet"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:contentDescription="@string/app_name"
         android:scaleType="fitCenter" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="8dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -30,37 +30,36 @@
             android:fontFamily="monospace"
             android:maxLines="1"
             android:textColor="@color/ink"
-            android:textSize="17sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/pet_state"
-            android:layout_width="wrap_content"
+            android:id="@+id/pet_say"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textAllCaps="true"
-            android:textColor="@color/ok"
-            android:textSize="11sp"
-            android:textStyle="bold" />
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/ink"
+            android:textSize="13sp" />
 
         <ProgressBar
             android:id="@+id/pet_belly"
-            style="?android:attr/progressBarStyleHorizontal"
+            style="@android:style/Widget.Material.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="8dp"
+            android:layout_height="6dp"
             android:layout_marginTop="5dp"
-            android:max="100"
-            android:progressTint="@color/ok"
-            android:progress="100" />
+            android:max="100" />
 
         <TextView
             android:id="@+id/pet_meta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
-            android:maxLines="2"
+            android:fontFamily="monospace"
+            android:maxLines="1"
             android:textColor="@color/ink_soft"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>

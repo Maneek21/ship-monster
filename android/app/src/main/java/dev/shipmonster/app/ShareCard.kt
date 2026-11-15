@@ -1,5 +1,12 @@
 package dev.shipmonster.app
 
+import android.content.Context
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Game
+import dev.shipmonster.app.core.Monster
+import dev.shipmonster.app.core.Mood
+import dev.shipmonster.app.core.Rules
+
 import android.app.Activity
 import android.content.ClipData
 import android.content.Intent
@@ -23,37 +30,19 @@ object ShareCard {
     class Card(val title: String, val line: String, val sprite: Bitmap, val dark: Boolean)
 
     /** What to say for the pet as it is now, or for a grave when one is given. */
-    fun cardFor(s: PetState, now: Long, grave: Grave?): Card {
-        if (grave != null) {
-            val dead = PetState(Pet(grave.name, 0L, deadAt = grave.diedAt, deadCause = grave.cause, form = grave.form))
-            val line = PetEngine.epitaph(grave).removePrefix("R.I.P. ${grave.name}. ") +
-                " Best streak ${grave.bestStreak} " + (if (grave.bestStreak == 1) "day." else "days.")
-            return Card("R.I.P. ${grave.name}", line, Sprites.forState(dead, grave.diedAt, 24), false)
+    /** A card for one monster, or for a hall of fame entry when [hall] is given. */
+    fun cardFor(c: Context, g: Game, m: Monster?, hall: String?): Card {
+        if (hall != null || m == null) {
+            val stone = Art.scaled(Art.frame(c, "gravelkin", 5, Art.STONE), 12)
+            return Card("Hall of fame", hall ?: "Nothing here yet.", stone, true)
         }
-        val p = s.pet
-        val sprite = Sprites.forState(s, now, 24)
-        val ships = p.commits + p.merges
-        return when (PetEngine.status(s, now)) {
-            Status.EGG -> Card("${p.name} is an egg", "It hatches on my next ship.", sprite, false)
-            Status.DEAD -> {
-                val g = s.graveyard.firstOrNull()
-                if (g != null) cardFor(s, now, g) else Card("R.I.P. ${p.name}", "Gone.", sprite, false)
-            }
-            Status.MONSTER -> Card(
-                "${p.name} is a monster",
-                "No ship in ${PetText.dur(PetEngine.hoursSinceFed(s, now))}. My apps are locked until I push.",
-                sprite, true
-            )
-            Status.HUNGRY -> Card(
-                "${p.name} is hungry",
-                "No ship in ${PetText.dur(PetEngine.hoursSinceFed(s, now))}. Monster in ${PetText.dur(PetEngine.hoursToNext(s, now) ?: 0.0)}.",
-                sprite, false
-            )
-            Status.HAPPY -> Card(
-                "${p.name} the ${PetText.formLabel(p.form)}",
-                "${p.streak}-day shipping streak. $ships ${if (ships == 1) "ship" else "ships"} eaten. Still alive.",
-                sprite, false
-            )
+        val feral = Engine.mood(g) == Mood.FERAL && m.id in g.party
+        val sprite = Art.scaled(Art.frame(c, m.species, m.stage, Art.variantFor(g, m, false)), 12)
+        val stars = if (m.stars > 0) " ${m.stars}-star ${m.sp.rarity.label.lowercase()}." else " ${m.sp.rarity.label}."
+        return when {
+            m.stone -> Card("${m.name} turned to stone", "My horde fell because I stopped shipping. A gem brings it back.", sprite, true)
+            feral -> Card("${m.name} went feral", "No ship in ${Fmt.hours((g.idleMs / Rules.H).toInt())}. My apps are locked until I push.", sprite, true)
+            else -> Card(m.title, "${g.streak}-day shipping streak.$stars Raised on ${g.pushes} pushes and ${g.merges} merged pull requests.", sprite, false)
         }
     }
 
@@ -62,9 +51,9 @@ object ShareCard {
         val cv = Canvas(bmp)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        // red shell with the dot texture of the toy handheld
-        cv.drawColor(0xFFD5352E.toInt())
-        paint.color = 0x1F000000
+        // the den, with a faint dot texture
+        cv.drawColor(0xFF201634.toInt())
+        paint.color = 0x14FFFFFF
         var y = 8f
         while (y < SIZE) {
             var x = 8f
@@ -82,9 +71,9 @@ object ShareCard {
         cv.drawText("SHIP MONSTER", 70f, 118f, head)
 
         // screen
-        paint.color = 0xFF26252B.toInt()
+        paint.color = 0xFF2A1F3D.toInt()
         cv.drawRoundRect(RectF(60f, 160f, 1020f, 940f), 40f, 40f, paint)
-        paint.color = if (card.dark) 0xFF3C2568.toInt() else 0xFFFFFDF6.toInt()
+        paint.color = if (card.dark) 0xFF3A0F2A.toInt() else 0xFFFFF8E7.toInt()
         cv.drawRoundRect(RectF(90f, 190f, 990f, 910f), 26f, 26f, paint)
 
         val sprite = card.sprite
@@ -113,10 +102,10 @@ object ShareCard {
         return bmp
     }
 
-    fun share(activity: Activity, grave: Grave?) {
+    fun share(activity: Activity, monsterId: Int, hall: String? = null) {
         try {
-            val now = PetStore.now(activity)
-            val card = cardFor(PetStore.load(activity), now, grave)
+            val g = GameStore.load(activity)
+            val card = cardFor(activity, g, g.monster(monsterId) ?: g.lead, hall)
             val dir = File(activity.cacheDir, "share")
             dir.mkdirs()
             val file = File(dir, "ship-monster.png")

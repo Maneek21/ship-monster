@@ -1,23 +1,16 @@
 package dev.shipmonster.app
 
 import android.content.Context
+import dev.shipmonster.app.core.Engine
 
-/** One place that brings everything in line with the pet's current state. Cheap, safe to call often. */
+/** One place that brings everything in line with the game's current state. Cheap, safe to call often. */
 object PetRuntime {
     fun refresh(c: Context) {
         val app = c.applicationContext
-        val now = PetStore.now(app)
-        val s = PetStore.load(app)
-        val st = PetEngine.status(s, now)
-
-        val prev = Prefs.lastStatus(app)
-        if (prev != st.name) {
-            Prefs.setLastStatus(app, st.name)
-            if (prev.isNotEmpty()) Notifier.onTransition(app, s, prev, st)
-        }
-
+        val g = GameStore.load(app)
+        val now = GameStore.now(app)
         PetWidget.refresh(app)
-        TickReceiver.scheduleNext(app, s, now)
-        LockService.ensure(app, st == Status.MONSTER)
+        TickReceiver.scheduleNext(app, Engine.nextWakeAt(g, now, GameStore.tz(now)) - now)
+        LockService.ensure(app, Engine.lockActive(g, now))
     }
 }

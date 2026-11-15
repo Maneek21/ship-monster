@@ -1,0 +1,305 @@
+# Ship Monster dialogue bank.
+# situation|voice|conditions|text
+# voice: * or one of needy gremlin anxious deadpan sleepy smug noble cryptic
+# conditions: * or a comma list of tiny, mid, giant, streak>=N, streak<N, stage=N, species=id, stars>=N
+# variables: {name} {streak} {hours} {app} {chow} {stage} {next}
+# Tiny monsters speak in lower case and giants in capitals; that is applied by the app.
+
+# ---------------- idle: fed and calm
+fed|*|*|Belly full. Life good.
+fed|*|*|That last push was delicious.
+fed|*|*|{chow} chow in the pantry. I counted.
+fed|*|*|Ship something small today. I am not picky.
+fed|*|*|I like it here.
+fed|*|tiny|i am small but i believe in you
+fed|*|tiny|one day i will be enormous. feed me.
+fed|*|giant|I REMEMBER WHEN I FIT IN YOUR POCKET.
+fed|*|giant|THE GROUND SHAKES WHEN I AM HAPPY. I AM HAPPY.
+fed|*|stage=8|There is nothing left to grow into. Only to maintain.
+fed|*|stars>=3|{name} has stars. {name} is aware of this.
+fed|needy|*|You came back! You always come back. Right?
+fed|needy|*|Are you looking at me? Keep looking at me.
+fed|needy|*|I saved you a spot next to me.
+fed|gremlin|*|Push to main. Do it. Nobody is watching.
+fed|gremlin|*|What if we deleted the tests. As a treat.
+fed|gremlin|*|I ate a merge conflict once. Crunchy.
+fed|anxious|*|Everything is fine. Is everything fine?
+fed|anxious|*|Did you remember to pull first? Just checking.
+fed|anxious|*|I am calm. This is what calm looks like.
+fed|deadpan|*|Fed. Fine. Carry on.
+fed|deadpan|*|Thrilled. This is my thrilled face.
+fed|deadpan|*|Another day. Another diff.
+fed|sleepy|*|Fed and warm. Going back to sleep.
+fed|sleepy|*|Wake me if something compiles.
+fed|sleepy|*|Five more minutes. Or hours.
+fed|smug|*|Adequate work. For you.
+fed|smug|*|I would have named that variable better.
+fed|smug|*|You are welcome for the motivation.
+fed|noble|*|The horde is fed. You have done your duty.
+fed|noble|*|A fine day to ship, keeper.
+fed|noble|*|We stand ready.
+fed|cryptic|*|The branch you fear to open holds the fix you seek.
+fed|cryptic|*|All code is temporary. Chow is eternal.
+fed|cryptic|*|I have seen the end of the backlog. There is no end.
+
+# ---------------- idle: hungry belly
+hungry|*|*|My belly is making the noise again.
+hungry|*|*|The pantry is looking thin.
+hungry|*|*|A push would really hit the spot.
+hungry|needy|*|I am so hungry. Do you still like me?
+hungry|gremlin|*|Feed me or I start chewing on the config.
+hungry|anxious|*|Is there more chow coming? There is more coming. Right?
+hungry|deadpan|*|Hungry. Not that anyone asked.
+hungry|sleepy|*|Too hungry to nap. This is serious.
+hungry|smug|*|I assume my dinner is delayed for a good reason.
+hungry|noble|*|A knight does not complain. A knight is, however, starving.
+hungry|cryptic|*|The void inside me is not a metaphor.
+
+# ---------------- idle: restless (24 to 48 hours)
+restless|*|*|It has been {hours} hours. Ship something.
+restless|*|*|The horde is getting twitchy.
+restless|*|*|{next} hours until this gets ugly.
+restless|*|*|One commit. Any commit. Please.
+restless|*|giant|I AM VERY LARGE AND VERY BORED. THAT IS A BAD MIX.
+restless|needy|*|Did I do something wrong? Is that why you stopped?
+restless|gremlin|*|Tick tock. I get the fun apps in {next} hours.
+restless|anxious|*|We are fine. We have {next} hours. We are not fine.
+restless|deadpan|*|{hours} hours. I am counting. You should be too.
+restless|sleepy|*|Even I noticed you stopped. And I was asleep.
+restless|smug|*|Taking a little break, are we? How brave.
+restless|noble|*|The horde grows uneasy, keeper. Lead them.
+restless|cryptic|*|The quiet before the lock is still quiet.
+
+# ---------------- idle: feral (48 hours and over)
+feral|*|*|NO SHIP. NO APPS.
+feral|*|*|Feed the horde. Then we talk.
+feral|*|*|{hours} hours of nothing. This is on you.
+feral|*|*|{next} hours until the horde falls.
+feral|needy|*|YOU LEFT. NOW I AM LIKE THIS.
+feral|gremlin|*|YOUR APPS ARE MINE NOW. FINALLY.
+feral|anxious|*|I TOLD YOU. I TOLD YOU THIS WOULD HAPPEN.
+feral|deadpan|*|Feral. As scheduled.
+feral|sleepy|*|TOO ANGRY TO SLEEP. THINK ABOUT THAT.
+feral|smug|*|I expected this from you. That is the sad part.
+feral|noble|*|YOU HAVE BROKEN YOUR OATH, KEEPER.
+feral|cryptic|*|WHAT IS NOT PUSHED CANNOT BE FORGIVEN.
+
+# ---------------- idle: rest day and hibernation
+restday|*|*|Rest day. The clock is paused. Go outside.
+restday|*|*|No shipping needed today. I checked.
+restday|*|*|Day off. I will guard the pantry.
+restday|gremlin|*|Rest day. You could still push. I would not tell.
+restday|sleepy|*|Finally. A day that understands me.
+restday|anxious|*|Resting. On purpose. This is allowed.
+restday|noble|*|Even the horde keeps the day of rest.
+hibernate|*|*|Zzz. The horde is hibernating.
+hibernate|*|*|Wake us when you are back.
+hibernate|sleepy|*|Best. Idea. Ever.
+hibernate|cryptic|*|In sleep, all branches are merged.
+
+# ---------------- idle: time of day
+night|*|*|It is late. One more push or bed?
+night|*|*|Night chow has a certain flavour.
+night|needy|*|You are still up! Me too! Because of you!
+night|gremlin|*|Midnight deploys are the best deploys.
+night|anxious|*|Should we be up this late? Is prod okay?
+night|deadpan|*|It is past midnight. Your code will not improve.
+night|sleepy|*|Why are we awake.
+night|smug|*|The real ones ship at night. I am the real one.
+night|noble|*|The night watch is yours, keeper.
+night|cryptic|*|The stars are just unresolved promises.
+morning|*|*|Morning. The pantry opens when you push.
+morning|*|*|Fresh day. Fresh chow?
+morning|needy|*|You are awake! I have been waiting since yesterday!
+morning|gremlin|*|Coffee first. Chaos second.
+morning|anxious|*|Good morning. Nothing broke overnight. Probably.
+morning|deadpan|*|Morning. Allegedly good.
+morning|sleepy|*|Too early. Come back with breakfast.
+morning|smug|*|Up already? I am almost impressed.
+morning|noble|*|The sun rises on a horde in good order.
+morning|cryptic|*|Dawn is only night that shipped.
+
+# ---------------- idle: streak pride, CI, pantry, egg
+streak|*|*|{streak} days in a row. Keep feeding.
+streak|*|*|Day {streak}. I could get used to this.
+streak|*|streak>=30|{streak} days. People write blog posts about less.
+streak|*|streak>=100|{streak} days. You are not well. I love it.
+streak|needy|*|{streak} days together. I have been counting every one.
+streak|gremlin|*|{streak} days. Imagine losing it. Imagine.
+streak|anxious|*|{streak} days. Do not think about breaking it. I am thinking about it.
+streak|deadpan|*|{streak} days. Noted.
+streak|sleepy|*|{streak} days of breakfast. Excellent.
+streak|smug|*|{streak} days. Mostly thanks to me.
+streak|noble|*|{streak} days of service. The horde salutes you.
+streak|cryptic|*|{streak} links in a chain you cannot see.
+cired|*|*|The build is red. It tastes burnt.
+cired|*|*|CI is failing. I can smell it from here.
+cired|anxious|*|The build is red. THE BUILD IS RED.
+cired|gremlin|*|Red build. Ship it anyway. I dare you.
+cired|deadpan|*|CI is red. Shocking.
+cired|smug|*|A red build. I would never.
+pantrylow|*|*|Pantry is nearly empty. {chow} chow left.
+pantrylow|*|*|We are down to {chow} chow. Just saying.
+pantrylow|anxious|*|{chow} chow. That is not a lot of chow.
+pantrylow|gremlin|*|{chow} chow left. I will fight the others for it.
+egg|*|*|...
+egg|*|*|(The egg is waiting for your first push.)
+egg|*|*|(Something inside is listening for a commit.)
+egg|*|*|(It wobbles when you open your editor.)
+
+# ---------------- events: fed by a push
+fedpush|*|*|Nom. Push received.
+fedpush|*|*|Fresh chow. Thank you.
+fedpush|*|*|That one was tasty.
+fedpush|*|tiny|nom nom nom
+fedpush|*|giant|A PUSH. I FELT IT FROM HERE.
+fedpush|needy|*|You fed me! You do care!
+fedpush|needy|*|For me? All of it? You remembered!
+fedpush|gremlin|*|Tasty. Was that a force push? I hope so.
+fedpush|gremlin|*|More. Faster. Break something.
+fedpush|anxious|*|Oh thank goodness. I was getting worried.
+fedpush|anxious|*|Food. Good. Did the tests pass?
+fedpush|deadpan|*|Chow received.
+fedpush|deadpan|*|It was fine.
+fedpush|sleepy|*|Mmf. Breakfast in bed.
+fedpush|sleepy|*|Nom. Zzz.
+fedpush|smug|*|Finally. Acceptable.
+fedpush|smug|*|I knew you had one more in you.
+fedpush|noble|*|A worthy offering.
+fedpush|noble|*|The horde thanks you, keeper.
+fedpush|cryptic|*|The diff is consumed. The diff becomes me.
+fedpush|cryptic|*|It tastes of futures.
+
+# ---------------- events: a merged pull request
+merged|*|*|A merge. And a gem with it.
+merged|*|*|Pull request merged. The good stuff.
+merged|*|*|That is treasure, that is.
+merged|needy|*|You merged it! I am so proud of us!
+merged|gremlin|*|Merged. Did anyone actually review it? Do not tell me.
+merged|anxious|*|It is merged. It is really merged. Nothing exploded.
+merged|deadpan|*|Merged. Gem. Good.
+merged|sleepy|*|A gem. Shiny. Pillow material.
+merged|smug|*|Approved by someone with taste, clearly.
+merged|noble|*|Victory in the field. A gem for the treasury.
+merged|cryptic|*|Two histories became one. So it goes.
+
+# ---------------- events: hatching, growing, shrinking
+hatched|*|*|Hello. I am new.
+hatched|*|*|I hatched. What did I miss?
+hatched|needy|*|Are you my keeper? You are my keeper.
+hatched|gremlin|*|I live. Where is the chaos.
+hatched|anxious|*|It is very bright out here.
+hatched|deadpan|*|So this is outside.
+hatched|sleepy|*|I just got here and I am already tired.
+hatched|smug|*|You may begin feeding me.
+hatched|noble|*|I am hatched, and I am at your service.
+hatched|cryptic|*|I was always here. Now you can see me.
+evolved|*|*|I grew. Look at me.
+evolved|*|*|New size. Same appetite. Bigger, actually.
+evolved|*|*|I am a {stage} now.
+evolved|*|stage=8|TITAN. IT IS DONE.
+evolved|needy|*|I got bigger! Is it still okay to sit on you?
+evolved|gremlin|*|Bigger teeth. Bigger problems. Yours.
+evolved|anxious|*|I grew. Is that normal? It felt normal.
+evolved|deadpan|*|I am larger. Update your records.
+evolved|sleepy|*|Grew in my sleep. Efficient.
+evolved|smug|*|Naturally. I was always going to be this impressive.
+evolved|noble|*|I have grown in your service, keeper.
+evolved|cryptic|*|The shape changes. The hunger does not.
+dropped|*|*|I shrank. That was your doing.
+dropped|*|*|Smaller again. Feed me back up.
+dropped|needy|*|I got smaller. Do you like me less now?
+dropped|gremlin|*|You shrank me. I will remember this.
+dropped|anxious|*|I knew it. I knew this would happen.
+dropped|deadpan|*|Demoted. Wonderful.
+dropped|sleepy|*|Smaller bed needed. Thanks for nothing.
+dropped|smug|*|A temporary setback. Yours, mostly.
+dropped|noble|*|I have lost stature. We shall earn it back.
+dropped|cryptic|*|What grows can ungrow.
+
+# ---------------- events: treats and feasts
+treat|*|*|A treat! Yes.
+treat|*|*|Snack accepted.
+treat|needy|*|A treat? For me? I knew I was your favourite.
+treat|gremlin|*|Gimme. Another. Now.
+treat|anxious|*|Oh. Thank you. I was not expecting that.
+treat|deadpan|*|Snack. Fine.
+treat|sleepy|*|Midnap snack. Perfect.
+treat|smug|*|I do deserve this.
+treat|noble|*|Most generous.
+treat|cryptic|*|A small sweetness in a long hunger.
+treatfav|*|*|My favourite flavour. You remembered.
+treatfav|*|*|Oh, that is the good stuff.
+treatfav|*|*|THIS one. More of this one.
+treatnone|*|*|No more treats today. I am watching my figure.
+treatnone|*|*|Three is the limit. Rules are rules.
+treatnone|gremlin|*|Three treats only? Who wrote that rule. I want names.
+feast|*|*|A FEAST. Everybody eats.
+feast|*|*|The whole horde is stuffed.
+feast|*|*|Best. Day. Ever.
+feast|noble|*|A feast worthy of song.
+feast|sleepy|*|Feast, then nap. The perfect day.
+
+# ---------------- events: state changes
+calmed|*|*|You shipped. We are calm again.
+calmed|*|*|Okay. Okay. We are good now.
+calmed|needy|*|You came back. I knew you would. I was not scared.
+calmed|gremlin|*|Fine. You can have your apps back. For now.
+calmed|anxious|*|Oh thank goodness. Never do that again.
+calmed|deadpan|*|Crisis over. Until the next one.
+calmed|sleepy|*|Good. Now I can sleep.
+calmed|smug|*|I knew my methods would work.
+calmed|noble|*|Your oath is restored, keeper.
+calmed|cryptic|*|The storm passes. The storm remembers.
+milestone|*|*|{streak} days straight. Here is a gem.
+milestone|*|*|A {streak}-day streak. The horde is impressed.
+levelup|*|*|You levelled up. More room in the pantry.
+levelup|*|*|New keeper rank. Fancy.
+benched|*|*|Too hungry. I am going to the den.
+revived|*|*|I was a rock. Now I am not. Thank you.
+revived|*|*|That was a long nap.
+revived|deadpan|*|Being a statue was peaceful, actually.
+fall|*|*|The horde has fallen.
+truce|*|*|Twelve hours. Use them to ship.
+truce|gremlin|*|A bribe. I accept. Twelve hours.
+newegg|*|*|An egg! Tap it. Tap it.
+newegg|*|*|Something is moving in there.
+star|*|*|A twin. I ate its power. I have a star now.
+star|*|*|Same species. More star.
+
+# ---------------- poked by the keeper
+poke|*|*|Hey.
+poke|*|*|That tickles.
+poke|*|*|Yes? I am right here.
+poke|*|*|Poke me again and I am telling the others.
+poke|*|giant|YOU DARE POKE ME.
+poke|*|tiny|eep
+poke|needy|*|You touched me! Do it again!
+poke|needy|*|I love attention. This is attention.
+poke|gremlin|*|Bite. That was a warning bite.
+poke|gremlin|*|Poke the monster, get the monster.
+poke|anxious|*|Ah! Oh. It is you.
+poke|anxious|*|Is something wrong? Why are you poking?
+poke|deadpan|*|Stop that.
+poke|deadpan|*|I felt that. I chose not to react.
+poke|sleepy|*|Mm? What year is it?
+poke|sleepy|*|I was having a dream about breakfast.
+poke|smug|*|You may admire me. No touching.
+poke|smug|*|Yes, I know. I am magnificent.
+poke|noble|*|You have my attention, keeper.
+poke|noble|*|At your command.
+poke|cryptic|*|The finger that pokes is also poked.
+poke|cryptic|*|I felt that yesterday.
+
+# ---------------- on the lock screen
+lock|*|*|{app} is closed until you ship.
+lock|*|*|No {app}. Push something first.
+lock|*|*|You can have {app} back for one commit.
+lock|needy|*|{app} cannot have you. You are mine until you ship.
+lock|gremlin|*|{app} belongs to the horde now.
+lock|anxious|*|I am sorry. I cannot let you into {app}. I am so sorry.
+lock|deadpan|*|{app}. No.
+lock|sleepy|*|I am sitting on {app}. I am very heavy.
+lock|smug|*|{app}? Really? Instead of shipping?
+lock|noble|*|None shall pass into {app} until the oath is kept.
+lock|cryptic|*|The door to {app} opens from the other side of a push.

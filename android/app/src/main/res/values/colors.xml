@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#231A2E</color>
-    <color name="ink_soft">#655B72</color>
-    <color name="card">#FFFDF6</color>
+    <color name="ink">#2A1F3D</color>
+    <color name="ink_soft">#6A5F7C</color>
+    <color name="card">#FFF8E7</color>
     <color name="card_monster">#3C2568</color>
     <color name="on_monster">#F6EEFF</color>
     <color name="on_monster_soft">#C9B6EE</color>
-    <color name="shell">#D5352E</color>
+    <color name="shell">#201634</color>
     <color name="bezel">#26252B</color>
-    <color name="key">#161519</color>
-    <color name="print">#FFF3E6</color>
+    <color name="key">#FFD447</color>
+    <color name="print">#FFF8E7</color>
     <color name="lcd">#C7D4B4</color>
     <color name="lcd_ink">#232D1B</color>
-    <color name="leaflet">#FBF6EA</color>
-    <color name="lock_bg">#1B0F33</color>
+    <color name="leaflet">#FFF8E7</color>
+    <color name="lock_bg">#2A0A1E</color>
     <color name="amber">#FFCF6B</color>
     <color name="danger">#FF6B7A</color>
     <color name="ok">#23A45F</color>
@@ -21,4 +21,11 @@
     <color name="bad">#E5384B</color>
     <color name="monster">#8A4DFF</color>
     <color name="icon_bg">#FFD447</color>
+    <color name="den">#201634</color>
+    <color name="den_soft">#34264F</color>
+    <color name="on_den">#FFF8E7</color>
+    <color name="on_den_soft">#B9AED0</color>
+    <color name="gold">#FFD447</color>
+    <color name="gem">#3BD6C6</color>
+    <color name="line">#2A1F3D</color>
 </resources>

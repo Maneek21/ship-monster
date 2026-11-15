@@ -13,3 +13,4 @@ captures/
 # Python and Node scratch
 __pycache__/
 node_modules/
+art/preview/

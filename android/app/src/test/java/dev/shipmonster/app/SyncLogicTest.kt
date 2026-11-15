@@ -1,5 +1,10 @@
 package dev.shipmonster.app
 
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Game
+import dev.shipmonster.app.core.Rules
+import org.junit.Assert.assertNotNull
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -8,7 +13,8 @@ import org.junit.Test
 import java.time.Instant
 
 class SyncLogicTest {
-    private val h = PetEngine.H
+    private val h = Rules.H
+    private val now = 1000 * Rules.H
     private fun t(iso: String): Long = Instant.parse(iso).toEpochMilli()
 
     @Test fun parsesReposAndSkipsArchivedOrNeverPushed() {
@@ -101,66 +107,48 @@ class SyncLogicTest {
         assertTrue(SyncLogic.firstSyncWindow(emptyList(), now).isEmpty())
     }
 
-    @Test fun firstSyncBackdatesTheEggAndBuildsARealStreak() {
-        val now = 100 * 24 * h + 12 * h
-        val s = PetEngine.newState(now)
-        val events = (3 downTo 0).map { ShipEvent(now - it * 24 * h - h, false, "r") }
-        val summary = SyncLogic.apply(s, events, 0, backdate = true)
-        assertEquals(4, summary.fed)
-        assertTrue(summary.hatched)
-        assertEquals(4, s.pet.streak)
-        assertEquals(Status.HAPPY, PetEngine.status(s, now))
-        assertEquals(now - 3 * 24 * h - h, s.pet.hatchedAt)
+    @Test
+    fun firstSyncReplaysHistoryAndHatchesTheStarter() {
+        val g = Game.fresh(now)
+        Engine.pickStarter(g, "mossback")
+        val events = listOf(ShipEvent(now - 30 * h, false, "a/b"), ShipEvent(now - 2 * h, true, "a/b"))
+        val summary = SyncLogic.apply(g, events, 0, backdate = true)
+        assertEquals(2, summary.fed)
+        assertEquals(1, summary.merges)
+        assertNotNull(summary.hatched)
+        assertEquals(1, summary.gems)
+        assertEquals(1, g.party.size)
+        assertEquals("Found your recent work. Mossback hatched with a ${g.streak}-day streak.", SyncLogic.message(summary, g, true))
     }
 
-    @Test fun withoutBackdatingOldEventsDoNotHatchANewEgg() {
-        val now = 100 * 24 * h
-        val s = PetEngine.newState(now)
-        val summary = SyncLogic.apply(s, listOf(ShipEvent(now - h, false, "r")), 0, backdate = false)
-        assertEquals(0, summary.fed)
-        assertEquals(Status.EGG, PetEngine.status(s, now))
-        val later = SyncLogic.apply(s, listOf(ShipEvent(now + h, false, "r")), 0, backdate = false)
-        assertEquals(1, later.fed)
-        assertTrue(later.hatched)
-    }
-
-    @Test fun eventsOlderThanTheLastMealAreIgnored() {
-        val s = PetEngine.newState(0)
-        PetEngine.ship(s, 10 * h, false)
-        val summary = SyncLogic.apply(s, listOf(ShipEvent(5 * h, false, "r"), ShipEvent(10 * h, false, "r"), ShipEvent(12 * h, true, "r")), 0, backdate = false)
+    @Test
+    fun eventsAlreadyCountedAreIgnored() {
+        val g = Game.fresh(0)
+        Engine.pickStarter(g, "mossback")
+        Engine.ship(g, 10 * h, false, 0)
+        val summary = SyncLogic.apply(g, listOf(ShipEvent(5 * h, false, "r"), ShipEvent(10 * h, false, "r"), ShipEvent(12 * h, true, "r")), 0, backdate = false)
         assertEquals(1, summary.fed)
         assertEquals(1, summary.merges)
-        assertEquals(12 * h, s.pet.lastFedAt)
     }
 
-    @Test fun aShipTurnsAMonsterBackAndADeadPetStaysDead() {
-        val s = PetEngine.newState(0)
-        PetEngine.ship(s, 0, false)
-        val back = SyncLogic.apply(s, listOf(ShipEvent(60 * h, false, "r")), 0, backdate = false)
-        assertTrue(back.turnedBack)
-        assertEquals(Status.HAPPY, PetEngine.status(s, 60 * h))
-
-        // Next ship comes 130 hours later: the pet starved at hour 120 of that gap.
-        val late = SyncLogic.apply(s, listOf(ShipEvent(190 * h, false, "r"), ShipEvent(191 * h, false, "r")), 0, backdate = false)
-        assertEquals(0, late.fed)
-        assertEquals(Cause.STARVED, s.pet.deadCause)
-        assertEquals(1, s.graveyard.size)
+    @Test
+    fun nothingIsAppliedBeforeAStarterIsPicked() {
+        val g = Game.fresh(0)
+        val summary = SyncLogic.apply(g, listOf(ShipEvent(h, false, "r")), 0, backdate = false)
+        assertEquals(0, summary.fed)
+        assertEquals("Pick a starter egg first.", SyncLogic.message(summary, g, false))
     }
 
-    @Test fun messages() {
-        val s = PetEngine.newState(0)
-        assertEquals("No ships in the last 48 hours. Ship something to hatch the egg.", SyncLogic.message(ApplySummary(), s, true))
-        assertEquals("Up to date. Nothing new.", SyncLogic.message(ApplySummary(), s, false))
-        PetEngine.ship(s, 0, false)
-        assertEquals("Found your recent work. Pip hatched with a 1-day streak.", SyncLogic.message(ApplySummary(fed = 1, hatched = true), s, true))
-        assertEquals("2 new ships. Pip ate.", SyncLogic.message(ApplySummary(fed = 2), s, false))
-        assertEquals("Pip turned back. Apps unlocked.", SyncLogic.message(ApplySummary(fed = 1, turnedBack = true), s, false))
-    }
-
-    @Test fun agoText() {
-        assertEquals("just now", PetText.ago(20_000))
-        assertEquals("12 min ago", PetText.ago(12 * 60_000L))
-        assertEquals("3h ago", PetText.ago(3 * h + 5 * 60_000))
-        assertEquals("2d ago", PetText.ago(50 * h))
+    @Test
+    fun messagesReadWell() {
+        val g = Game.fresh(0)
+        Engine.pickStarter(g, "mossback")
+        val none = SyncLogic.apply(g, emptyList(), 0, backdate = true)
+        assertEquals("No ships in the last 48 hours. The egg hatches on your next push.", SyncLogic.message(none, g, true))
+        assertEquals("Up to date. Nothing new.", SyncLogic.message(none, g, false))
+        val two = SyncLogic.apply(g, listOf(ShipEvent(h, false, "r"), ShipEvent(2 * h, false, "r")), 0, backdate = false)
+        assertEquals("Mossback hatched.", SyncLogic.message(two, g, false))
+        val one = SyncLogic.apply(g, listOf(ShipEvent(3 * h, false, "r")), 0, backdate = false)
+        assertEquals("1 new ship. The horde ate.", SyncLogic.message(one, g, false))
     }
 }

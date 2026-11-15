@@ -1,5 +1,12 @@
 package dev.shipmonster.app
 
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Ev
+import dev.shipmonster.app.core.Event
+import dev.shipmonster.app.core.Game
+import dev.shipmonster.app.core.Monster
+import dev.shipmonster.app.core.Rules
+
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -10,12 +17,14 @@ data class RepoInfo(val fullName: String, val pushedAt: Long)
 /** One thing that feeds the pet: a push, or a merged pull request. */
 data class ShipEvent(val time: Long, val merge: Boolean, val repo: String)
 
-data class ApplySummary(
-    val fed: Int = 0,
-    val merges: Int = 0,
-    val hatched: Boolean = false,
-    val turnedBack: Boolean = false,
-    val evolved: Form? = null
+class ApplySummary(
+    val fed: Int,
+    val merges: Int,
+    val hatched: Monster?,
+    val calmed: Boolean,
+    val evolved: Monster?,
+    val gems: Int,
+    val events: List<Event>,
 )
 
 /**
@@ -112,7 +121,7 @@ object SyncLogic {
     fun firstSyncWindow(events: List<ShipEvent>, now: Long): List<ShipEvent> {
         val sorted = events.filter { it.time <= now }.sortedBy { it.time }
         if (sorted.isEmpty()) return emptyList()
-        val limit = PetEngine.MONSTER_AT * PetEngine.H
+        val limit = Rules.FERAL_H * Rules.H
         if (now - sorted.last().time >= limit) return emptyList()
         var start = sorted.size - 1
         while (start > 0 && sorted[start].time - sorted[start - 1].time < limit) start--
@@ -120,46 +129,48 @@ object SyncLogic {
     }
 
     /**
-     * Feeds the pet with the events, oldest first. backdate lets an unhatched egg be born in the
-     * past so first-sync history can count. Events from before the pet existed, or older than
-     * its last meal, are ignored, and a dead pet stays dead.
+     * Feeds the horde with the events, oldest first. backdate lets a first sync replay history from
+     * before the game existed. Events at or before the last ship already counted are ignored.
      */
-    fun apply(s: PetState, events: List<ShipEvent>, tzOffsetMs: Long, backdate: Boolean): ApplySummary {
+    fun apply(g: Game, events: List<ShipEvent>, tzOffsetMs: Long, backdate: Boolean): ApplySummary {
         var fed = 0
         var merges = 0
-        var hatched = false
-        var turnedBack = false
-        var evolved: Form? = null
-        for (e in events.sortedBy { it.time }) {
-            var p = s.pet
-            if (p.deadAt != null) break
-            if (p.hatchedAt == null && e.time < p.bornAt) {
-                if (!backdate) continue
-                p = p.copy(bornAt = e.time)
-                s.pet = p
-            }
-            val lastFed = p.lastFedAt
-            if (lastFed != null && e.time <= lastFed) continue
-            val r = PetEngine.ship(s, e.time, e.merge, tzOffsetMs) ?: break
+        var hatched: Monster? = null
+        var calmed = false
+        var evolved: Monster? = null
+        val gemsBefore = g.gems
+        val all = ArrayList<Event>()
+        val sorted = events.sortedBy { it.time }
+        if (backdate && sorted.isNotEmpty()) Engine.rewind(g, sorted.first().time)
+        for (e in sorted) {
+            if (g.lastShipAt != 0L && e.time <= g.lastShipAt) continue
+            if (g.needsStarter) break
+            val evs = Engine.ship(g, e.time, e.merge, tzOffsetMs, e.repo)
+            all.addAll(evs)
             fed++
             if (e.merge) merges++
-            if (r.hatched) hatched = true
-            if (r.was == Status.MONSTER) turnedBack = true
-            if (r.evolved != null) evolved = r.evolved
+            for (ev in evs) when (ev.kind) {
+                Ev.HATCHED -> hatched = ev.monster
+                Ev.CALMED -> calmed = true
+                Ev.EVOLVED -> evolved = ev.monster
+                else -> {}
+            }
         }
-        return ApplySummary(fed, merges, hatched, turnedBack, evolved)
+        return ApplySummary(fed, merges, hatched, calmed, evolved, g.gems - gemsBefore, all)
     }
 
-    fun message(summary: ApplySummary, s: PetState, first: Boolean): String {
-        val name = s.pet.name
+    fun message(summary: ApplySummary, g: Game, first: Boolean): String {
+        val hatched = summary.hatched
+        val evolved = summary.evolved
+        val gems = if (summary.gems > 0) " +${summary.gems} gem" + (if (summary.gems > 1) "s." else ".") else ""
         return when {
-            s.pet.deadAt != null -> "$name died before these ships arrived. Hatch a new egg."
-            summary.hatched && first -> "Found your recent work. $name hatched with a ${s.pet.streak}-day streak."
-            summary.hatched -> "$name hatched."
-            summary.turnedBack -> "$name turned back. Apps unlocked."
-            summary.evolved != null -> "$name grew into a ${PetText.formLabel(summary.evolved)}."
-            summary.fed > 0 -> if (summary.fed == 1) "1 new ship. $name ate." else "${summary.fed} new ships. $name ate."
-            first -> "No ships in the last 48 hours. Ship something to hatch the egg."
+            g.needsStarter -> "Pick a starter egg first."
+            hatched != null && first -> "Found your recent work. ${hatched.name} hatched with a ${g.streak}-day streak."
+            hatched != null -> "${hatched.name} hatched."
+            summary.calmed -> "You shipped. The horde is calm and your apps are open."
+            evolved != null -> "${evolved.name} grew into a ${evolved.stageName}.$gems"
+            summary.fed > 0 -> (if (summary.fed == 1) "1 new ship. The horde ate." else "${summary.fed} new ships. The horde ate.") + gems
+            first -> "No ships in the last 48 hours. The egg hatches on your next push."
             else -> "Up to date. Nothing new."
         }
     }

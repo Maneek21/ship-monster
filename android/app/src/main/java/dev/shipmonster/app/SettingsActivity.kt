@@ -1,5 +1,12 @@
 package dev.shipmonster.app
 
+import android.view.Gravity
+import android.widget.LinearLayout
+import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Ev
+import dev.shipmonster.app.core.Mood
+import dev.shipmonster.app.core.Rules
+
 import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
@@ -49,7 +56,7 @@ class SettingsActivity : Activity() {
         findViewById<Button>(R.id.btn_skip6).setOnClickListener { skip(6) }
         findViewById<Button>(R.id.btn_skip24).setOnClickListener { skip(24) }
         findViewById<Button>(R.id.btn_reset_clock).setOnClickListener {
-            PetStore.resetClock(this)
+            GameStore.resetClock(this)
             changed("Pet clock is back on real time.")
         }
         findViewById<Button>(R.id.btn_reset_all).setOnClickListener { confirmResetAll() }
@@ -204,37 +211,32 @@ class SettingsActivity : Activity() {
     // Test lab
 
     private fun fakeShip(merge: Boolean) {
-        val now = PetStore.now(this)
-        val s = PetStore.load(this)
-        val name = s.pet.name
-        val r = PetEngine.ship(s, now, merge, PetStore.tzOffset(now))
-        if (r == null) {
-            toast("$name is dead. Hatch a new egg on the home screen.")
-            return
-        }
-        PetStore.save(this, s)
-        changed(
+        val msg = GameStore.edit(this) { g, now ->
+            if (g.needsStarter) return@edit "Pick a starter egg on the home screen first."
+            val evs = Engine.ship(g, now, merge, GameStore.tz(now), "test/lab")
+            val hatched = evs.firstOrNull { it.kind == Ev.HATCHED }?.monster
+            val evolved = evs.firstOrNull { it.kind == Ev.EVOLVED }?.monster
             when {
-                r.hatched -> "$name hatched."
-                r.was == Status.MONSTER -> "$name turned back. Apps unlocked."
-                r.evolved != null -> "$name grew into a ${PetText.formLabel(r.evolved)}."
-                merge -> "Fake PR merged. Feast."
-                else -> "Fake commit. $name ate."
+                hatched != null -> "${hatched.name} hatched."
+                evs.any { it.kind == Ev.CALMED } -> "The horde calmed down. Apps unlocked."
+                evolved != null -> "${evolved.name} grew into a ${evolved.stageName}."
+                merge -> "Fake PR merged. ${g.gems} gems, ${g.pantry} chow."
+                else -> "Fake push. ${g.pantry} chow in the pantry."
             }
-        )
+        }
+        changed(msg)
     }
 
     private fun skip(hours: Int) {
-        val before = PetEngine.status(PetStore.load(this), PetStore.now(this))
-        PetStore.skip(this, hours)
-        val s = PetStore.load(this)
-        val after = PetEngine.status(s, PetStore.now(this))
-        val name = s.pet.name
+        val before = Engine.mood(GameStore.load(this))
+        GameStore.skip(this, hours)
+        val g = GameStore.load(this)
+        val after = Engine.mood(g)
         changed(
             if (before == after) "Skipped ${hours}h." else when (after) {
-                Status.HUNGRY -> "$name is hungry."
-                Status.MONSTER -> "$name turned into a monster."
-                Status.DEAD -> "$name has died."
+                Mood.RESTLESS -> "The horde is restless."
+                Mood.FERAL -> "The horde went feral."
+                Mood.EMPTY -> "The horde has fallen."
                 else -> "Skipped ${hours}h."
             }
         )
@@ -243,15 +245,93 @@ class SettingsActivity : Activity() {
     private fun confirmResetAll() {
         AlertDialog.Builder(this)
             .setTitle("Reset everything?")
-            .setMessage("This deletes the pet, the graveyard and the sync history. Your GitHub name, token and lock choices stay.")
+            .setMessage("This deletes every monster, the pantry, the gems and the sync history. Your GitHub name, token and lock choices stay.")
             .setPositiveButton("Reset") { _, _ ->
-                PetStore.reset(this)
+                GameStore.reset(this)
                 Prefs.resetSync(this)
-                Prefs.setLastStatus(this, "")
-                changed("Reset. A fresh egg is waiting.")
+                Prefs.setOnboarded(this, false)
+                changed("Reset. Start again from the home screen.")
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    // Rest days, hibernation and extra test buttons are built in code and added above the version line.
+
+    private var extra: LinearLayout? = null
+
+    private fun renderExtra() {
+        val root = findViewById<TextView>(R.id.tv_version).parent as LinearLayout
+        extra?.let { root.removeView(it) }
+        val box = Ui.col(this)
+        extra = box
+        root.addView(box, root.indexOfChild(findViewById(R.id.tv_version)))
+        val g = GameStore.load(this)
+        val now = GameStore.now(this)
+
+        val rest = Ui.card(this)
+        rest.addView(Ui.h(this, "Rest days"))
+        rest.addView(Ui.body(this, "On a rest day the horde clock is paused and bellies do not drain. Shipping still pays. A streak carries across rest days."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+        val days = Ui.row(this)
+        val names = arrayOf("Su", "Mo", "Tu", "We", "Th", "Fr", "Sa")
+        for (d in 0..6) {
+            val on = d in g.restDays
+            val t = Ui.text(this, names[d], 13f, R.color.ink, bold = true, mono = true)
+            t.gravity = Gravity.CENTER
+            t.setBackgroundResource(if (on) R.drawable.tile_on else R.drawable.tile)
+            t.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10))
+            t.contentDescription = "rest ${names[d]} " + (if (on) "on" else "off")
+            t.setOnClickListener {
+                GameStore.edit(this) { game, _ ->
+                    if (d in game.restDays) game.restDays.remove(d) else if (game.restDays.size < 3) game.restDays.add(d)
+                    Unit
+                }
+                PetRuntime.refresh(this)
+                renderExtra()
+            }
+            days.addView(t, Ui.lp(0, Ui.WRAP, 1f, start = if (d > 0) Ui.dp(this, 4) else 0))
+        }
+        rest.addView(days, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
+        rest.addView(Ui.text(this, "Up to three days a week.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+        box.addView(rest)
+
+        val hib = Ui.card(this)
+        hib.addView(Ui.h(this, "Hibernate"))
+        if (Engine.hibernating(g, now)) {
+            val left = ((g.hibernateUntil - now) / Rules.H).toInt() + 1
+            hib.addView(Ui.body(this, "The horde is asleep for another ${Fmt.hours(left)}. Nothing drains and nothing locks."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            hib.addView(Ui.button(this, "Wake the horde now", Ui.LIGHT) {
+                GameStore.edit(this) { game, t -> Engine.wake(game, t) }
+                PetRuntime.refresh(this)
+                renderExtra()
+            })
+        } else {
+            hib.addView(Ui.body(this, "Going on holiday or off sick? Put the horde to sleep for up to ${Rules.MAX_HIBERNATE_DAYS} days. Once every ${Rules.HIBERNATE_COOLDOWN_DAYS} days, and not while feral."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            val r = Ui.row(this)
+            for ((i, n) in intArrayOf(3, 7, 14).withIndex()) {
+                r.addView(Ui.button(this, "$n days", Ui.LIGHT) {
+                    val ok = GameStore.edit(this) { game, t -> Engine.hibernate(game, t, n) }
+                    if (!ok) toast("Not available right now. It needs a calm horde and ${Rules.HIBERNATE_COOLDOWN_DAYS} days since the last time.")
+                    PetRuntime.refresh(this)
+                    renderExtra()
+                }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10), start = if (i > 0) Ui.dp(this, 8) else 0))
+            }
+            hib.addView(r)
+        }
+        box.addView(hib)
+
+        val lab = Ui.card(this)
+        lab.addView(Ui.h(this, "More test lab"))
+        lab.addView(Ui.button(this, "Add 5 gems", Ui.LIGHT) {
+            GameStore.edit(this) { game, _ -> game.gems += 5 }
+            changed("Added 5 gems.")
+        })
+        lab.addView(Ui.button(this, "Add 100 growth to the party", Ui.LIGHT) {
+            GameStore.edit(this) { game, _ -> for (m in game.partyMonsters()) { m.gp += 100; if (m.stage > m.peak) m.peak = m.stage } }
+            changed("The party grew.")
+        })
+        box.addView(lab)
+        box.addView(Ui.space(this, 12))
     }
 
     // Render
@@ -290,7 +370,7 @@ class SettingsActivity : Activity() {
 
         setSwitch(R.id.sw_lock, Prefs.lockEnabled(this)) { onLockSwitch(it) }
         findViewById<TextView>(R.id.tv_lock_state).text = when {
-            !Prefs.lockEnabled(this) -> "Off. The pet still turns monster, but nothing locks."
+            !Prefs.lockEnabled(this) -> "Off. The horde still goes feral, but nothing locks."
             !LockAccess.ready(this) -> "On, but something above is missing, so it cannot lock yet."
             LockService.running -> "Armed and running."
             else -> "Armed. It starts the next time this app is opened."
@@ -298,9 +378,10 @@ class SettingsActivity : Activity() {
 
         setSwitch(R.id.sw_notify, Prefs.notifyEnabled(this) && Notifier.canPost(this)) { onNotifySwitch(it) }
 
-        val offset = PetStore.clockOffset(this)
+        renderExtra()
+        val offset = GameStore.clockOffset(this)
         findViewById<TextView>(R.id.tv_test_state).text =
-            if (offset == 0L) "Pet clock: real time." else "Pet clock: ${PetText.dur(offset.toDouble() / PetEngine.H)} ahead of real time."
+            if (offset == 0L) "Game clock: real time." else "Game clock: ${Fmt.hours((offset / Rules.H).toInt())} ahead of real time."
 
         findViewById<TextView>(R.id.tv_version).text = "Ship Monster ${BuildConfig.VERSION_NAME}. Open source, GPL-3.0."
     }

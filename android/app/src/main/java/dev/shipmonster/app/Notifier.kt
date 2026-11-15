@@ -6,6 +6,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import dev.shipmonster.app.core.Ev
+import dev.shipmonster.app.core.Event
+import dev.shipmonster.app.core.Game
+import dev.shipmonster.app.core.Rules
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -57,28 +61,37 @@ object Notifier {
     /** The ongoing notification every foreground service must show. */
     fun guard(c: Context): Notification {
         ensureChannels(c)
-        return build(c, CH_GUARD, "Monster lock is armed", "Apps only lock while your pet is a monster.")
+        return build(c, CH_GUARD, "Monster lock is armed", "Apps only lock while the horde is feral.")
             .setOngoing(true)
             .build()
     }
 
-    /** Announces a status change. prev is the status name we last announced. */
-    fun onTransition(c: Context, s: PetState, prev: String, now: Status) {
-        if (!Prefs.notifyEnabled(c)) return
-        val name = s.pet.name
-        val lockOn = LockAccess.ready(c)
-        val pair: Pair<String, String>? = when (now) {
-            Status.HUNGRY -> "$name is hungry" to "24 hours without a ship. Push something."
-            Status.MONSTER -> "$name turned into a monster" to
-                if (lockOn) "Your chosen apps are locked until you ship." else "Ship something to turn it back."
-            Status.DEAD -> "$name has died" to
-                if (s.pet.deadCause == Cause.MERCY) "Mercy-unlocked. A new egg is waiting." else "Starved as a monster. A new egg is waiting."
-            Status.HAPPY -> if (prev == Status.MONSTER.name) "$name turned back" to "Fed again. Apps unlocked." else null
-            Status.EGG -> null
+    /** Announces what happened while nobody was looking. One notification per kind of news. */
+    fun onEvents(c: Context, g: Game, events: List<Event>) {
+        if (!Prefs.notifyEnabled(c) || !canPost(c)) return
+        val bank = GameStore.lines(c)
+        val lockOn = Prefs.lockEnabled(c) && LockAccess.ready(c)
+        for (e in events) {
+            val m = e.monster
+            val name = m?.name ?: "The horde"
+            val seed = g.lastTick / 60_000 + e.kind.ordinal
+            val pair: Pair<String, String>? = when (e.kind) {
+                Ev.RESTLESS -> "The horde is restless" to "$name: \"${bank.say("restless", m, g, seed)}\""
+                Ev.FERAL -> "The horde went feral" to
+                    (if (lockOn) "Your chosen apps are locked until you ship." else "Ship something to calm it down.") +
+                    (if (e.n > 0) " Your ${e.n}-day streak is gone." else "")
+                Ev.FALL -> "The horde has fallen" to e.text
+                Ev.CALMED -> "The horde is calm again" to "$name: \"${bank.say("calmed", m, g, seed)}\""
+                Ev.EVOLVED -> "$name grew into a ${Rules.STAGE_NAMES[e.n]}" to "\"${bank.say("evolved", m, g, seed)}\""
+                Ev.HATCHED -> "$name hatched" to "\"${bank.say("hatched", m, g, seed)}\""
+                Ev.BENCHED -> "$name went to the den" to "It went hungry for a full day. Ship more, or keep a smaller party."
+                Ev.MILESTONE -> "${e.n}-day streak" to "The horde is impressed. A gem is waiting in the nest."
+                else -> null
+            }
+            if (pair == null) continue
+            ensureChannels(c)
+            manager(c).notify(ID_PET + 10 + e.kind.ordinal, build(c, CH_PET, pair.first, pair.second).setAutoCancel(true).build())
         }
-        if (pair == null || !canPost(c)) return
-        ensureChannels(c)
-        manager(c).notify(ID_PET, build(c, CH_PET, pair.first, pair.second).setAutoCancel(true).build())
     }
 
     /** The lock should be running but Android would not let it start from the background. */

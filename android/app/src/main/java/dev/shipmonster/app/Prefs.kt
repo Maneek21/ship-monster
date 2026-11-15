@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONObject
 
-/** User settings and sync bookkeeping. The pet itself lives in PetStore. */
+/** User settings and sync bookkeeping. The game itself lives in GameStore. */
 object Prefs {
     private fun p(c: Context): SharedPreferences = c.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -48,6 +48,10 @@ object Prefs {
     fun setNotifyEnabled(c: Context, v: Boolean) = p(c).edit().putBoolean("notify_enabled", v).apply()
 
     /** The last pet status we told the user about, so each change is announced once. */
+    fun onboarded(c: Context): Boolean = p(c).getBoolean("onboarded", false)
+    fun setOnboarded(c: Context, v: Boolean) = p(c).edit().putBoolean("onboarded", v).apply()
+    fun hintDone(c: Context, key: String): Boolean = p(c).getBoolean("hint_$key", false)
+    fun setHintDone(c: Context, key: String) = p(c).edit().putBoolean("hint_$key", true).apply()
     fun lastStatus(c: Context): String = p(c).getString("last_status", "") ?: ""
     fun setLastStatus(c: Context, v: String) = p(c).edit().putString("last_status", v).apply()
 
