@@ -68,7 +68,7 @@ class PetWidget : AppWidgetProvider() {
                     mood == Mood.RESTLESS -> "Feral $due"
                     else -> "Restless $due"
                 }
-                views.setTextViewText(R.id.pet_meta, "$state  |  streak ${Engine.liveStreak(g, now, tz)}  |  ${g.gems} gems")
+                views.setTextViewText(R.id.pet_meta, "$state  |  streak ${Engine.liveStreak(g, now, tz)}")
             }
             val open = PendingIntent.getActivity(
                 context, 0, Intent(context, MainActivity::class.java),
