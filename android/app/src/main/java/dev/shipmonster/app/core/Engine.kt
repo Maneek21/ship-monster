@@ -85,10 +85,21 @@ object Engine {
         if (g.party.isEmpty()) return
         val before = g.idleMs
         g.idleMs += dt
-        for (m in g.partyMonsters()) m.belly = (m.belly - 50.0 * dt / D).coerceAtLeast(0.0)
-        graze(g)
+        val starved = HashMap<Int, Long>()      // how much of this stretch each belly spent empty
         for (m in g.partyMonsters()) {
-            if (m.belly <= 0.0) m.emptyMs += dt else m.emptyMs = 0
+            val untilEmpty = (m.belly / 50.0 * D).toLong()
+            starved[m.id] = (dt - untilEmpty).coerceIn(0, dt)
+            m.belly = (m.belly - 50.0 * dt / D).coerceAtLeast(0.0)
+        }
+        graze(g)
+        if (before < Rules.RESTLESS_H * H && g.idleMs >= Rules.RESTLESS_H * H) {
+            g.note(at, "restless", "A day without shipping. The horde is restless.")
+            evs.add(Event(Ev.RESTLESS, g.lead))
+        }
+        if (!g.feral && g.idleMs >= Rules.FERAL_H * H) goFeral(g, at, evs)
+        if (g.idleMs >= Rules.FALL_H * H) { fall(g, at, evs); return }
+        for (m in g.partyMonsters()) {
+            if (m.belly <= 0.0) m.emptyMs += starved[m.id] ?: 0L else m.emptyMs = 0
             if (!g.feral && m.emptyMs >= D && g.party.size > 1) {
                 g.party.remove(m.id)
                 m.emptyMs = 0
@@ -97,12 +108,6 @@ object Engine {
                 evs.add(Event(Ev.BENCHED, m))
             }
         }
-        if (before < Rules.RESTLESS_H * H && g.idleMs >= Rules.RESTLESS_H * H) {
-            g.note(at, "restless", "A day without shipping. The horde is restless.")
-            evs.add(Event(Ev.RESTLESS, g.lead))
-        }
-        if (!g.feral && g.idleMs >= Rules.FERAL_H * H) goFeral(g, at, evs)
-        if (g.idleMs >= Rules.FALL_H * H) fall(g, at, evs)
     }
 
     private fun endOfDay(g: Game, day: Long, awake: Boolean, at: Long, evs: ArrayList<Event>) {

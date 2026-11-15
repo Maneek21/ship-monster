@@ -33,16 +33,18 @@ class LineBank(tsv: String) {
         else -> false
     }
 
+    /**
+     * The lines that fit, laid out as a cycle. Lines written for this voice or this situation in
+     * particular come round twice as often as the generic ones, and no line sits next to itself.
+     */
     private fun candidates(situation: String, voice: Voice?, stage: Int, species: String, stars: Int, streak: Int): List<Line> {
-        val out = ArrayList<Line>()
-        for (l in bySituation[situation] ?: return out) {
-            if (l.voice != null && l.voice != voice) continue
-            if (!l.conds.all { holds(it, stage, species, stars, streak) }) continue
-            // more specific lines get more tickets
-            val tickets = 1 + (if (l.voice != null) 2 else 0) + 2 * l.conds.size
-            repeat(tickets) { out.add(l) }
+        val fits = (bySituation[situation] ?: return emptyList()).filter { l ->
+            (l.voice == null || l.voice == voice) && l.conds.all { holds(it, stage, species, stars, streak) }
         }
-        return out
+        val order = fits.sortedBy { mix(it.text.hashCode().toLong()) }
+        val special = order.filter { it.voice != null || it.conds.isNotEmpty() }
+        val generic = order.filter { it.voice == null && it.conds.isEmpty() }
+        return if (special.size >= 2) special + generic + special else special + generic
     }
 
     private fun mix(x: Long): Long {
@@ -54,15 +56,13 @@ class LineBank(tsv: String) {
 
     /**
      * The line [m] says in [situation]. The same seed always gives the same line, so the home screen
-     * and the widget agree; consecutive seeds never give the same line twice in a row.
+     * and the widget agree; the next seed always gives a different line.
      */
     fun say(situation: String, m: Monster?, g: Game, seed: Long, app: String = ""): String {
         val stage = m?.stage ?: 1
         val c = candidates(situation, m?.sp?.voice, stage, m?.species ?: "", m?.stars ?: 0, g.streak)
         if (c.isEmpty()) return "..."
-        var line = c[(mix(seed) % c.size).toInt()]
-        val prev = c[(mix(seed - 1) % c.size).toInt()]
-        if (line === prev) line = c.firstOrNull { it !== prev } ?: line
+        val line = c[Math.floorMod(seed, c.size.toLong()).toInt()]
         var text = line.text
             .replace("{name}", m?.name ?: "")
             .replace("{streak}", g.streak.toString())
