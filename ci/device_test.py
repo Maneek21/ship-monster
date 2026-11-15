@@ -310,7 +310,12 @@ def main():
     seek_tap("start", text="Start with Puddlewump")
 
     # 2. First sync with a real username, no token
-    wait_for(lambda: "Puddlewump" in (desc_of("den ") or ""), 45)
+    born = wait_for(lambda: find(dump(), desc="hatched Puddlewump"), 45)
+    note("hatch pop-up after the first sync", born is not None)
+    if born:
+        shot("05a_first_hatch")
+    dismiss()
+    wait_for(lambda: "Puddlewump" in (desc_of("den ") or ""), 20)
     n = seek(desc="sync status")
     status = n["text"] if n else None
     note("first sync message", status)
@@ -462,6 +467,11 @@ def main():
     shot("18_den_restless")
     open_settings()
     lab("btn_skip24")
+    home()
+    # Offline, going feral waits up to three hours for a sync to confirm nothing was shipped.
+    check("going feral waits for a sync", state_is("restless") and seek(contains="Checking GitHub before anything changes") is not None, desc_of("state "))
+    open_settings()
+    lab("btn_skip6")
     home()
     check("two days without shipping make it feral", state_is("feral"), desc_of("state "))
     check("going feral resets the streak", num("streak ") == 0, num("streak "))

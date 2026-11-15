@@ -97,7 +97,7 @@ class MainActivity : Activity() {
         handler.removeCallbacks(ticker)
         handler.post(ticker)
         if (Prefs.onboarded(this) && Prefs.username(this).isNotEmpty() &&
-            System.currentTimeMillis() - Prefs.lastSyncAt(this) > 90_000) sync(false)
+            (GameStore.holding || System.currentTimeMillis() - Prefs.lastSyncAt(this) > 90_000)) sync(false)
     }
 
     override fun onPause() {
@@ -214,6 +214,14 @@ class MainActivity : Activity() {
         val pad = Ui.dp(this, 20)
         box.setPadding(pad, pad, pad, 0)
         var shown = 0
+        events.lastOrNull { it.kind == Ev.HATCHED && it.monster != null }?.let { e ->
+            val m = g.monster(e.monster!!.id) ?: e.monster!!
+            box.addView(Ui.sprite(this, Art.portrait(this, m.species, m.stage, Art.HAPPY), 130))
+            box.addView(Ui.h(this, "${m.name} hatched").apply { gravity = Gravity.CENTER; contentDescription = "hatched ${m.name}" }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+            val history = if (m.stage > 1 || g.streak > 1) "Your recent work counted: a ${g.streak}-day streak, and ${m.name} is already a ${m.stageName}.\n" else ""
+            box.addView(Ui.body(this, "$history\"${bank.say("hatched", m, g, m.id.toLong())}\"").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)).apply { bottomMargin = Ui.dp(this@MainActivity, 14) })
+            shown++
+        }
         val grown = events.filter { it.kind == Ev.EVOLVED && it.monster != null }.groupBy { it.monster!!.id }.values.map { it.last() }
         for (e in grown.take(3)) {
             val m = g.monster(e.monster!!.id) ?: e.monster!!

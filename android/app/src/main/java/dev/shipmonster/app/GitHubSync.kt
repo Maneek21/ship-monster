@@ -120,6 +120,8 @@ object GitHubSync {
             summary.merges > 0 && summary.gems > 0 -> "merged"
             else -> "fedpush"
         }
-        return SyncOutcome(message, summary.fed, true, situation, summary.events)
+        // A first sync replays a month in one go. Only the hatching is worth a pop-up.
+        val shown = if (first) summary.events.filter { it.kind == Ev.HATCHED } else summary.events
+        return SyncOutcome(message, summary.fed, true, situation, shown)
     }
 }
