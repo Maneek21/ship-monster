@@ -29,14 +29,14 @@ Measured in awake hours since the last ship. Rest days do not count.
 - Any push or merged PR returns the horde to calm at once.
 - After a fall the clock restarts. A den monster steps up if there is one. Otherwise you pick a new starter egg.
 - Rest days default to Saturday and Sunday and can be changed. On a rest day the clock is paused, bellies do not drain, and shipping still pays.
-- Hibernate pauses everything for up to 14 days, once every 30 days.
+- Hibernate pauses everything for up to 14 days. It needs a calm or restless horde, and 30 days since the last hibernation ended.
 
 ## Currencies
 
 | Currency | From | Spent on |
 |---|---|---|
 | Chow | Every push. Pushes 1 to 3 of the day give 10, pushes 4 to 6 give 5, later ones give 2. A merged PR also gives 10 | Monsters graze on it automatically. Treats |
-| Gems | 1 per merged PR (up to 3 a day). 1 per keeper level. Streak milestones. Weekly bounty: 5 shipping days in a week gives 1 | An egg, a feast, 30 chow, reviving a statue, a truce |
+| Gems | 1 per merged PR (up to 3 a day). 1 per keeper level. Streak milestones. Weekly bounty: 5 shipping days in a week gives 1 | An egg (1), a feast (2), 30 chow (1), waking one statue (1), a truce (1) |
 
 Streak milestone gems: day 7 gives 1, 14 gives 1, 30 gives 2, 60 gives 2, 100 gives 3, 180 gives 5, 365 gives 10.
 
@@ -59,14 +59,15 @@ Chow carries the flavour of when it was pushed, in your local time. Each species
 | Appetite | Chow needed per awake day: common 5, rare 8, epic 12, legendary 16. One chow restores 50 divided by appetite |
 | Grazing | Automatic. Whenever there is chow, party monsters eat until full, in party order, favourite flavour first |
 | Treat | Costs 2 chow. Adds 10 belly and 1 growth point, 2 if it is the favourite flavour. Three per monster per day |
-| Feast | Costs 1 gem. Fills every belly, gives every party monster 10 growth points, revives every statue |
-| Stock up | Costs 1 gem. Adds 30 chow |
+| Feast | Costs 2 gems. Fills every belly, gives every party monster 10 growth points, wakes every statue |
+| Wake a statue | Costs 1 gem. One statue wakes with a full belly |
+| Stock up | Costs 1 gem. Adds 30 chow in the current flavour |
 | Pantry cap | 60 plus 20 per keeper level. Overflow turns into growth for the lead monster, 1 point per 10 chow |
-| Underfed | A party monster stuck at an empty belly for 24 awake hours, while the horde is not feral, sulks off to the den. The last party monster never leaves |
+| Underfed | A party monster whose belly has been empty for 24 awake hours, while the horde is not feral, sulks off to the den. The last party monster never leaves |
 
 ## Growth and evolution
 
-Growth points are awarded to each party monster at local midnight.
+Growth points are awarded to each party monster at local midnight, for awake days only. Rest days, hibernation and feral days pay nothing.
 
 | Belly at midnight | Growth points |
 |---|---|
@@ -155,7 +156,7 @@ Lines are pre-written and chosen offline. No AI at runtime.
 | Situation | Idle states (fed, restless, feral, rest day, hibernating, night, morning), events (fed, merged, egg, hatched, evolved, dropped a stage, treat, favourite food, feast, CI red, CI green again, streak milestone, level up, came back, poked, benched, statue, revived, fall, pantry low, new day) |
 | Variables | The monster's name, streak, hours since the last ship, the locked app, chow |
 
-Selection: among lines for the situation, the most specific match wins (voice, then generic). Recent lines are not repeated. The lead monster speaks on the home screen, the widget, notifications and the lock screen.
+Selection: the lines that fit the situation, voice and conditions form a cycle. Lines written for that voice or condition come round twice as often as generic ones, and the same line never appears twice in a row. The choice is a pure function of a seed, so the home screen and the widget always agree. The lead monster speaks on the home screen, the widget, notifications and the lock screen.
 
 ## First run
 
@@ -172,7 +173,7 @@ Active only while the horde is feral and the lock is switched on.
 | Exit | Cost |
 |---|---|
 | Ship | Free. The lock lifts at the next sync, or at once with "I shipped. Check now" |
-| Truce | 1 gem buys 12 hours. Once per feral spell |
+| Truce | 1 gem buys 12 hours with the apps open. Once per feral spell. The fall clock keeps running |
 | Surrender | The horde falls now |
 
 ## Screens
@@ -183,4 +184,4 @@ Active only while the horde is feral and the lock is switched on.
 | Horde | Every monster you own, the dex of all 12 species, a detail page per monster |
 | Nest | Eggs, the odds, feast, stock up |
 | Log | What happened, lifetime stats, the hall of fame |
-| Settings | GitHub, rest days, lock, notifications, hibernate, test lab |
+| Setup | GitHub, rest days, lock, notifications, hibernate, test lab |
