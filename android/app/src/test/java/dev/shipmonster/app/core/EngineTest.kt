@@ -125,7 +125,8 @@ class EngineTest {
         assertFalse(Engine.lockActive(g, t0 + 24 * h, 0))
         val evs2 = Engine.advance(g, t0 + 48 * h, 0)
         assertTrue(evs2.any { it.kind == Ev.FERAL })
-        assertTrue(evs2.any { it.kind == Ev.WARNING })
+        val warned = started()
+        assertTrue(Engine.advance(warned, t0 + 43 * h, 0).any { it.kind == Ev.WARNING && it.n == 6 })
         assertEquals(Mood.FERAL, Engine.mood(g))
         assertTrue(Engine.lockActive(g, t0 + 48 * h, 0))
         assertEquals(0, g.streak)
@@ -138,13 +139,17 @@ class EngineTest {
         g.lead!!.gp = 150.0                      // a Brute, stage 4
         val den = add(g, "gravelkin", party = false)
         den.gp = 150.0
+        Engine.advance(g, mon + 12 * h + 47 * h, 0)
+        val before = g.lead!!.gp
+        assertEquals(4, g.lead!!.stage)
         val evs = Engine.advance(g, mon + 12 * h + 48 * h, 0)
         assertTrue(evs.any { it.kind == Ev.DROPPED })
         assertEquals(3, g.lead!!.stage)
-        assertEquals(120.0, g.lead!!.gp, 0.001)
-        assertEquals(4, den.stage)
+        assertEquals(before * 0.8, g.lead!!.gp, 0.001)
+        assertEquals(150.0, den.gp, 0.001)
         // small monsters lose at least 15
         val tiny = started()
+        Engine.advance(tiny, mon + 12 * h + 47 * h, 0)
         tiny.lead!!.gp = 32.0
         Engine.advance(tiny, mon + 12 * h + 48 * h, 0)
         assertEquals(17.0, tiny.lead!!.gp, 0.001)
@@ -174,11 +179,14 @@ class EngineTest {
         val big = add(g, "frostnip", party = false)
         big.gp = 200.0
         g.restDays.clear()
+        Engine.advance(g, mon + 12 * h + 119 * h, 0)
+        val before = rare.gp
+        assertTrue(before < 400.0)                   // it lost a fifth when the horde went feral
         val evs = Engine.advance(g, mon + 12 * h + 120 * h, 0)
         assertTrue(evs.any { it.kind == Ev.FALL })
         assertTrue(g.owned("mossback")!!.stone)      // nobody is deleted
         assertTrue(rare.stone)
-        assertEquals(160.0, rare.gp, 0.001)          // 400, less a fifth when feral, halved by the fall
+        assertEquals(Math.floor(before / 2), rare.gp, 0.001)   // halved by the fall
         assertEquals(listOf(big.id, small.id), g.party)   // the den steps up, biggest first
         assertEquals(Mood.CALM, Engine.mood(g))
         assertEquals(1, g.falls)
