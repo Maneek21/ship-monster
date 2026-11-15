@@ -283,7 +283,7 @@ class MainActivity : Activity() {
 
     private fun onboarding(g: Game): View {
         val page = Ui.col(this)
-        page.gravity = Gravity.CENTER_HORIZONTAL
+        page.gravity = Gravity.CENTER
         page.addView(Ui.text(this, "SHIP MONSTER", 22f, R.color.on_den, bold = true, mono = true))
         page.addView(Ui.text(this, "Step ${step + 1} of 5", 12f, R.color.on_den_soft), Ui.lp(Ui.WRAP, Ui.WRAP, top = Ui.dp(this, 2)))
         val card = Ui.card(this)
@@ -292,21 +292,21 @@ class MainActivity : Activity() {
         when (step) {
             0 -> {
                 card.addView(Ui.sprite(this, Art.frame(this, "mossback", 4, Art.HAPPY), 150))
-                card.addView(Ui.h(this, "Your monsters eat shipped code"))
-                card.addView(Ui.body(this, "Every push to GitHub is chow for the pantry. Every merged pull request is a gem. You do not log anything. Just ship."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+                card.addView(Ui.h(this, "Your monsters eat shipped code").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
+                card.addView(Ui.body(this, "Every push to GitHub is chow for the pantry. Every merged pull request is a gem. You do not log anything. Just ship.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             1 -> {
                 val r = Ui.row(this)
                 r.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                 for ((s, size) in listOf(1 to 40, 3 to 56, 5 to 76, 8 to 104)) r.addView(Ui.sprite(this, Art.frame(this, "cindermite", s, Art.IDLE), size))
                 card.addView(r)
-                card.addView(Ui.h(this, "Feed them and they grow"), Ui.lp(Ui.WRAP, Ui.WRAP, top = Ui.dp(this, 8)))
-                card.addView(Ui.body(this, "Eight sizes, from Speck to Titan. Twelve species to hatch, each with its own voice and favourite flavour. Gems buy eggs and feasts."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+                card.addView(Ui.h(this, "Feed them and they grow").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
+                card.addView(Ui.body(this, "Eight sizes, from Speck to Titan. Twelve species to hatch, each with its own voice and favourite flavour. Gems buy eggs and feasts.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             2 -> {
                 card.addView(Ui.sprite(this, Art.frame(this, "gloomfang", 5, Art.FERAL), 150))
-                card.addView(Ui.h(this, "Stop shipping and they go feral"))
-                card.addView(Ui.body(this, "After 48 hours with no ship the horde goes feral. Your streak resets, everyone shrinks a size, and the horde can lock the apps you choose until you push. 72 hours later it falls.\n\nSaturday and Sunday are rest days. You can change that in Setup."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+                card.addView(Ui.h(this, "Stop shipping and they go feral").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
+                card.addView(Ui.body(this, "After 48 hours with no ship the horde goes feral. Your streak resets, everyone shrinks a size, and the horde can lock the apps you choose until you push. 72 hours later it falls.\n\nSaturday and Sunday are rest days. You can change that in Setup.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             3 -> {
                 card.gravity = Gravity.START
