@@ -58,7 +58,11 @@ object Rules {
     const val RESTLESS_H = 24
     const val FERAL_H = 48
     const val FALL_H = 120
+    const val WARN_H = 42
     const val TRUCE_H = 12
+    const val MERGE_GEMS_PER_DAY = 1
+    const val SHIP_DAYS_PER_GEM = 3
+    const val MAX_REST_DAYS = 3
     const val MAX_STARS = 5
     const val TREATS_PER_DAY = 3
     const val TREAT_COST = 2

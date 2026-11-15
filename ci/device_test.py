@@ -207,10 +207,19 @@ def wait_for(fn, seconds, every=1.0):
     return fn()
 
 
-def home():
+def dismiss(news=True):
+    """Close a celebration pop-up, and the 'while you were away' card unless asked to keep it."""
+    for label in (["Nice", "Got it"] if news else ["Nice"]):
+        n = find(dump(), text=label)
+        if n:
+            tap(n)
+
+
+def home(keep_news=False):
     # clear-top closes the setup screen if it is open above the home screen
     sh(f"am start -W --activity-clear-top -n {PKG}/.MainActivity")
     time.sleep(2)
+    dismiss(news=not keep_news)
 
 
 def hide_keyboard():
@@ -317,26 +326,40 @@ def main():
     sh("cmd connectivity airplane-mode enable")
     time.sleep(2)
 
-    # 3. Setup: no rest days during the test, so skipped days always count
+    # 3. Setup: rest days can be changed; then none at all, so skipped days always count
     open_settings()
-    for d in ("Su", "Sa"):
-        n = seek(desc=f"rest {d} on")
-        if n:
-            tap(n)
-    check("rest days can be switched off", seek(desc="rest Su off") is not None and find(dump(), desc="rest Sa off") is not None)
+    n = seek(desc="rest We off")
+    if n:
+        tap(n)
+    check("a rest day can be switched on", seek(desc="rest We on") is not None)
     shot("07_setup_rest_days")
+    n = seek(desc="rest We on")
+    if n:
+        tap(n)
+    check("and off again", seek(desc="rest We off") is not None)
+    seek_tap("no rest days", text="No rest days, starting now")
+    check("the test lab can clear rest days", seek(desc="rest Su off") is not None and find(dump(), desc="rest Sa off") is not None)
 
     # 4. Feed the horde with the test lab
     lab("btn_commit", 3)
     lab("btn_merge", 2)
     seek_tap("add gems", text="Add 5 gems")
+    seek_tap("add gems", text="Add 5 gems")
     seek_tap("add growth", text="Add 100 growth to the party")
-    home()
+    home(keep_news=True)
+    check("the den says what happened while away", find(dump(), desc="news") is not None or seek(desc="news") is not None)
+    shot("08_den_news")
+    dismiss()
+    scroll(False)
+    scroll(False)
     party = desc_of("den ")
     check("the starter hatched and leads the party", party is not None and "Puddlewump" in party, party)
     check("pushes filled the pantry", num("chow ") >= 20, num("chow "))
-    check("merged pull requests paid gems", num("gems ") >= 8, num("gems "))
-    stage = desc_of("monster ")
+    check("gems arrived", num("gems ") >= 11, num("gems "))
+    n = seek(desc_starts="monster ")
+    stage = n["desc"] if n else None
+    scroll(False)
+    scroll(False)
     check("growth evolved the monster", stage is not None and int(stage.split("stage")[-1]) >= 3, stage)
     before = (find(dump(), desc="speech") or {}).get("text")
     den = find(dump(), desc_starts="den ")
@@ -344,9 +367,10 @@ def main():
         tap(den)
     after = (find(dump(), desc="speech") or {}).get("text")
     check("poking the monster makes it speak", bool(after) and after != before, f"{before!r} -> {after!r}")
-    shot("08_den_poked")
+    shot("08b_den_poked")
     chow = num("chow ")
     seek_tap("treat", desc="treat")
+    dismiss()
     check("a treat costs two chow", num("chow ") == chow - 2, num("chow "))
     check("three treats a day", seek(contains="Treat (2 left)") is not None)
 
@@ -373,6 +397,10 @@ def main():
                 tap(egg)
     gems = num("gems ")
     seek_tap("feast", contains="Throw a feast")
+    time.sleep(1)
+    if find(dump(), text="Nice"):
+        shot("11a_celebration")
+    dismiss()
     check("a feast costs two gems", num("gems ") == gems - 2, num("gems "))
     seek(contains="What is in an egg")
     shot("11_nest_odds")

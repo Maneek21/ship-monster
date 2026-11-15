@@ -15,6 +15,8 @@ You keep a horde of monsters that eat shipped work. Pushes are food. Merged pull
 
 The lock only ever follows the horde clock. One ship always lifts it. Shipping too little for a big party never locks anything, it only slows growth.
 
+Nothing is ever deleted. The worst that happens to a monster is turning to stone, and stone can be woken.
+
 ## The horde clock
 
 Measured in awake hours since the last ship. Rest days do not count.
@@ -23,12 +25,15 @@ Measured in awake hours since the last ship. Rest days do not count.
 |---|---|---|
 | Calm | under 24 | None |
 | Restless | 24 to 48 | Warning. Monsters complain |
-| Feral | 48 and over | Chosen apps lock. Streak resets to 0. Every party monster drops one stage |
-| The fall | 72 hours feral | Party commons wander off for good. Party rares and above turn to stone. A hall of fame entry is written |
+| Feral | 48 and over | Chosen apps lock. Streak resets to 0. Every party monster loses a fifth of its growth (at least 15), which can drop it a size |
+| The fall | 72 hours feral | Every party monster turns to stone and loses half its growth. A hall of fame entry is written |
 
 - Any push or merged PR returns the horde to calm at once.
-- After a fall the clock restarts. A den monster steps up if there is one. Otherwise you pick a new starter egg.
-- Rest days default to Saturday and Sunday and can be changed. On a rest day the clock is paused, bellies do not drain, and shipping still pays.
+- After a fall the clock restarts. Den monsters step up to fill the party, biggest first. If nobody is left you pick a new starter egg from the commons you do not own.
+- Six hours before feral you get a warning. Going feral and the fall wait for a sync to confirm nothing was shipped, for up to three hours if the phone is offline. A ship that is only seen late still counts from the moment it happened.
+- Nobody joins or leaves the party while the horde is restless or feral.
+- The lock is off on rest days, even when the horde is feral.
+- Rest days default to Saturday and Sunday and can be changed, up to three a week. A change counts from tomorrow. On a rest day the clock is paused, bellies do not drain, and shipping still pays.
 - Hibernate pauses everything for up to 14 days. It needs a calm or restless horde, and 30 days since the last hibernation ended.
 
 ## Currencies
@@ -36,7 +41,7 @@ Measured in awake hours since the last ship. Rest days do not count.
 | Currency | From | Spent on |
 |---|---|---|
 | Chow | Every push. Pushes 1 to 3 of the day give 10, pushes 4 to 6 give 5, later ones give 2. A merged PR also gives 10 | Monsters graze on it automatically. Treats |
-| Gems | 1 per merged PR (up to 3 a day). 1 per keeper level. Streak milestones. Weekly bounty: 5 shipping days in a week gives 1 | An egg (1), a feast (2), 30 chow (1), waking one statue (1), a truce (1) |
+| Gems | 1 for the first merged PR of the day. 1 for every third day you ship. 1 per keeper level. Streak milestones. Weekly bounty: 5 shipping days in a week gives 1 | An egg (1), a feast (2), 30 chow (1), waking one statue (1), a truce (1) |
 
 Streak milestone gems: day 7 gives 1, 14 gives 1, 30 gives 2, 60 gives 2, 100 gives 3, 180 gives 5, 365 gives 10.
 
@@ -75,7 +80,7 @@ Growth points are awarded to each party monster at local midnight, for awake day
 | 1 to 50 | 4 |
 | Empty | 0 |
 
-Plus 2 if it ate its favourite flavour that day. Each star adds 10 percent.
+Plus 2 if it ate its favourite flavour that day. Plus 1 for every ship after the first that day, up to 5. Each star adds 10 percent.
 
 | Stage | Name | Growth points | Days if well fed |
 |---|---|---|---|
@@ -89,7 +94,7 @@ Plus 2 if it ate its favourite flavour that day. Each star adds 10 percent.
 | 7 | Colossus | 1000 | 100 |
 | 8 | Titan | 1800 | 180 |
 
-Going feral drops each party monster to the start of the stage below. A Titan carries its species epithet.
+A Titan carries its species epithet.
 
 ## Eggs
 
@@ -104,7 +109,7 @@ One gem buys one egg. Tap it to crack it.
 
 - Pity: the 5th egg without a rare or better is at least rare. The 20th without an epic or better is at least epic. The 60th without a legendary is legendary.
 - A species you already own is rerolled once, half the time.
-- A duplicate gives the owned monster a star, up to 5, and revives it if it is a statue. At 5 stars a duplicate pays 30 chow instead.
+- A duplicate gives the owned monster a star, up to 5, and wakes it if it is a statue. At 5 stars a duplicate pays 30 chow instead.
 - The odds are shown in the app. Gems cannot be bought.
 
 ## The keeper
@@ -125,6 +130,10 @@ Your level comes from lifetime chow earned.
 | 10 | 2250 | Monarch of Merges | 5 |
 
 Monsters outside the party rest in the den. They do not eat, grow, or fall.
+
+## Streaks
+
+A streak counts days in a row with a ship. Rest days and hibernation do not break it. A working day without a ship does, even if the horde never goes feral. At six in the evening you get one reminder if a streak of two or more is about to end.
 
 ## Species
 
@@ -163,7 +172,7 @@ Selection: the lines that fit the situation, voice and conditions form a cycle. 
 1. Three cards explain the deal.
 2. Enter a GitHub username.
 3. Pick one of three starter eggs.
-4. The first sync replays your latest unbroken run of shipping. If you shipped in the last 48 hours the egg hatches at once, with your real streak and up to 30 days of growth. If not, it hatches on your next push.
+4. The first sync replays your latest unbroken run of shipping. If you shipped in the last 48 awake hours the egg hatches at once, with your real streak and up to 30 days of growth. If not, it hatches on your next push. Whatever the history, you start with 1 to 3 gems, at most 40 chow and keeper level 2 at most.
 5. Add the widget. The lock is optional and offered last.
 
 ## The lock
@@ -175,6 +184,7 @@ Active only while the horde is feral and the lock is switched on.
 | Ship | Free. The lock lifts at the next sync, or at once with "I shipped. Check now" |
 | Truce | 1 gem buys 12 hours with the apps open. Once per feral spell. The fall clock keeps running |
 | Surrender | The horde falls now |
+| A rest day | Free. The lock is off until the next working day |
 
 ## Screens
 

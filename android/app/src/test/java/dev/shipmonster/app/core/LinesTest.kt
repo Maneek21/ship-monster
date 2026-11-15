@@ -33,7 +33,7 @@ class LinesTest {
     fun everySituationTheAppAsksForHasALineForEveryVoice() {
         val used = listOf("fed", "hungry", "restless", "feral", "restday", "hibernate", "night", "morning", "streak",
             "cired", "pantrylow", "egg", "fedpush", "merged", "hatched", "evolved", "dropped", "treat", "treatfav",
-            "treatnone", "feast", "calmed", "milestone", "levelup", "benched", "revived", "fall", "truce", "newegg",
+            "treatnone", "feast", "calmed", "milestone", "levelup", "benched", "revived", "truce", "newegg",
             "star", "poke", "lock")
         for (s in used) {
             assertTrue("no lines for $s", bank.has(s))

@@ -16,6 +16,11 @@ object GameStore {
     private const val PREFS = "game"
     private const val KEY_STATE = "state"
     private const val KEY_OFFSET = "debug_offset_ms"
+    private const val KEY_BROKEN = "state_before"
+    private const val GRACE_MS = 3 * 60 * 60 * 1000L
+    private var lastSaved: String? = null
+    private var cached: Game? = null
+    private var cachedAt = 0L
     private val lock = Any()
     private var bank: LineBank? = null
 
@@ -46,7 +51,9 @@ object GameStore {
             try {
                 return Game.fromJson(raw)
             } catch (e: Exception) {
+                // keep the unreadable save where it can be recovered instead of overwriting it
                 Log.w("ShipMonster", "saved game unreadable, starting over", e)
+                prefs(c).edit().putString(KEY_BROKEN, raw).commit()
             }
         }
         return migrate(c) ?: Game.fresh(now(c))
@@ -84,6 +91,34 @@ object GameStore {
     /** The game, brought up to now. Anything that happened on the way is announced. */
     fun load(c: Context): Game = edit(c) { g, _ -> g }
 
+    /** A copy loaded within the last [maxAgeMs], for callers that poll. Never write to it. */
+    fun recent(c: Context, maxAgeMs: Long): Game {
+        val g = cached
+        if (g != null && System.currentTimeMillis() - cachedAt < maxAgeMs) return g
+        return load(c)
+    }
+
+    /** True while going feral or the fall is being held back for a sync to confirm nothing was shipped. */
+    @Volatile
+    var holding = false
+        private set
+
+    /**
+     * How far the game may be advanced right now. Going feral and the fall cannot be undone, so
+     * they wait until a sync has looked at GitHub after the deadline. A phone that stays offline
+     * gets [GRACE_MS] of benefit of the doubt, then the rules apply.
+     */
+    private fun limit(c: Context, g: Game, now: Long): Long {
+        holding = false
+        if (Prefs.username(c).isEmpty()) return now
+        val edge = Engine.pointOfNoReturn(g, tz(now))
+        if (edge > now) return now
+        val checked = Prefs.lastGoodSync(c) + clockOffset(c)
+        if (checked >= edge || now - edge > GRACE_MS) return now
+        holding = true
+        return edge - 1
+    }
+
     /** Loads, advances to now, runs [block], saves. Returns what the block returns. */
     fun <T> edit(c: Context, block: (Game, Long) -> T): T {
         val app = c.applicationContext
@@ -93,15 +128,43 @@ object GameStore {
         synchronized(lock) {
             g = read(app)
             val now = now(app)
-            events = Engine.advance(g, now, tz(now))
+            val upTo = limit(app, g, now)
+            events = Engine.advance(g, upTo, tz(now))
             out = block(g, now)
-            prefs(app).edit().putString(KEY_STATE, g.toJson()).apply()
+            val json = g.toJson()
+            if (json != lastSaved) {
+                prefs(app).edit().putString(KEY_STATE, json).apply()
+                lastSaved = json
+            }
+            cached = g
+            cachedAt = System.currentTimeMillis()
         }
         if (events.isNotEmpty()) Notifier.onEvents(app, g, events)
+        if (holding) SyncJobService.soon(app)
         return out
     }
 
+    /** The save as text, for moving to another phone. */
+    fun export(c: Context): String = synchronized(lock) { prefs(c).getString(KEY_STATE, null) ?: "" }
+
+    /** Replaces the game with an exported save. The old one is kept aside. False if the text is not a save. */
+    fun import(c: Context, text: String): Boolean = synchronized(lock) {
+        val g = try { Game.fromJson(text.trim()) } catch (e: Exception) { return@synchronized false }
+        if (g.createdAt <= 0L) return@synchronized false
+        val p = prefs(c)
+        p.edit().putString(KEY_BROKEN, p.getString(KEY_STATE, null)).putString(KEY_STATE, g.toJson()).commit()
+        lastSaved = null
+        cached = null
+        true
+    }
+
     fun reset(c: Context) {
-        synchronized(lock) { prefs(c).edit().clear().apply() }
+        synchronized(lock) {
+            val p = prefs(c)
+            val old = p.getString(KEY_STATE, null)
+            p.edit().clear().putString(KEY_BROKEN, old).commit()
+            lastSaved = null
+            cached = null
+        }
     }
 }

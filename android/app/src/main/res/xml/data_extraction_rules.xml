@@ -1,17 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Only the game itself is backed up. Settings hold the GitHub token and stay on the phone. -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
+        <include domain="sharedpref" path="game.xml" />
     </cloud-backup>
     <device-transfer>
-        <exclude domain="root" />
-        <exclude domain="file" />
-        <exclude domain="database" />
-        <exclude domain="sharedpref" />
-        <exclude domain="external" />
+        <include domain="sharedpref" path="game.xml" />
     </device-transfer>
 </data-extraction-rules>

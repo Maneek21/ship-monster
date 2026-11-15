@@ -23,6 +23,8 @@ import android.widget.TextView
 import android.widget.Toast
 import dev.shipmonster.app.core.Dex
 import dev.shipmonster.app.core.Engine
+import dev.shipmonster.app.core.Ev
+import dev.shipmonster.app.core.Event
 import dev.shipmonster.app.core.Flavor
 import dev.shipmonster.app.core.Game
 import dev.shipmonster.app.core.Hatch
@@ -156,6 +158,7 @@ class MainActivity : Activity() {
                 PetRuntime.refresh(this)
                 render()
                 if (tell || out.fed > 0) toast(out.message)
+                celebrate(out.events)
             }
         }.start()
     }
@@ -171,7 +174,8 @@ class MainActivity : Activity() {
 
     private fun treat(id: Int) {
         var m: Monster? = null
-        val code = GameStore.edit(this) { g, now -> m = g.monster(id); Engine.treat(g, id, now) }
+        val evs = ArrayList<Event>()
+        val code = GameStore.edit(this) { g, now -> m = g.monster(id); Engine.treat(g, id, now, evs) }
         val g = GameStore.load(this)
         when (code) {
             2 -> { say(line(g, "treatfav", m)); den.joy(id) }
@@ -182,10 +186,12 @@ class MainActivity : Activity() {
         }
         PetRuntime.refresh(this)
         render()
+        celebrate(evs)
     }
 
     private fun feast() {
-        val ok = GameStore.edit(this) { g, now -> Engine.feast(g, now) != null }
+        val evs = GameStore.edit(this) { g, now -> Engine.feast(g, now) }
+        val ok = evs != null
         if (ok) {
             val g = GameStore.load(this)
             say(line(g, "feast", g.lead))
@@ -195,6 +201,43 @@ class MainActivity : Activity() {
             toast("A feast costs ${Rules.FEAST_COST} gems. Merged pull requests and streaks pay gems.")
         }
         render()
+        if (evs != null) celebrate(evs)
+    }
+
+    /** A pop-up for the big moments: growing a size, a new keeper level, a streak milestone. */
+    private fun celebrate(events: List<Event>) {
+        if (isFinishing || events.isEmpty()) return
+        val g = GameStore.recent(this, 5_000)
+        val bank = GameStore.lines(this)
+        val box = Ui.col(this)
+        box.gravity = Gravity.CENTER_HORIZONTAL
+        val pad = Ui.dp(this, 20)
+        box.setPadding(pad, pad, pad, 0)
+        var shown = 0
+        val grown = events.filter { it.kind == Ev.EVOLVED && it.monster != null }.groupBy { it.monster!!.id }.values.map { it.last() }
+        for (e in grown.take(3)) {
+            val m = g.monster(e.monster!!.id) ?: e.monster!!
+            box.addView(Ui.sprite(this, Art.portrait(this, m.species, e.n, Art.HAPPY), 130))
+            box.addView(Ui.h(this, if (e.n >= 8) "${m.name} is a Titan" else "${m.name} grew into a ${Rules.STAGE_NAMES[e.n]}").apply { gravity = Gravity.CENTER; contentDescription = "grew ${m.name}" }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+            box.addView(Ui.body(this, "\"${bank.say("evolved", m, g, m.id + e.n * 31L)}\"").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)).apply { bottomMargin = Ui.dp(this@MainActivity, 14) })
+            shown++
+        }
+        events.lastOrNull { it.kind == Ev.LEVEL }?.let { e ->
+            box.addView(Ui.sprite(this, Art.icon(this, "gem"), 56))
+            box.addView(Ui.h(this, "Keeper level ${e.n}: ${Rules.title(e.n)}").apply { gravity = Gravity.CENTER })
+            box.addView(Ui.body(this, "A gem, 20 more pantry space" + (if (Rules.slots(e.n) > Rules.slots(e.n - 1)) " and another party slot." else ".") + "\n\"${bank.say("levelup", g.lead, g, e.n.toLong())}\"").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)).apply { bottomMargin = Ui.dp(this@MainActivity, 14) })
+            shown++
+        }
+        events.lastOrNull { it.kind == Ev.MILESTONE }?.let { e ->
+            box.addView(Ui.sprite(this, Art.icon(this, "flame"), 56))
+            box.addView(Ui.h(this, "${e.n} days in a row").apply { gravity = Gravity.CENTER })
+            box.addView(Ui.body(this, "+${Rules.MILESTONES[e.n] ?: 1} gems.\n\"${bank.say("milestone", g.lead, g, e.n.toLong())}\"").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            shown++
+        }
+        if (shown == 0) return
+        buzz(true)
+        den.joy()
+        AlertDialog.Builder(this).setView(box).setPositiveButton("Nice", null).show()
     }
 
     private fun addWidget() {
@@ -290,7 +333,8 @@ class MainActivity : Activity() {
         left.addView(Ui.text(this, title, 18f, R.color.on_den, bold = true, mono = true))
         left.addView(Ui.text(this, "Lv ${g.level} ${Rules.title(g.level)}", 12f, R.color.on_den_soft))
         r.addView(left, Ui.lp(0, Ui.WRAP, 1f))
-        r.addView(chip("flame", "${g.streak}").apply { contentDescription = "streak ${g.streak}" })
+        val streak = Engine.liveStreak(g, GameStore.now(this), GameStore.tz(GameStore.now(this)))
+        r.addView(chip("flame", "$streak").apply { contentDescription = "streak $streak" })
         r.addView(chip("chow", "${g.pantry}").apply { contentDescription = "chow ${g.pantry}" })
         r.addView(chip("gem", "${g.gems}").apply { contentDescription = "gems ${g.gems}" })
         return r
@@ -325,7 +369,7 @@ class MainActivity : Activity() {
             2 -> {
                 card.addView(Ui.sprite(this, Art.portrait(this, "gloomfang", 5, Art.FERAL, grow = false), 150))
                 card.addView(Ui.h(this, "Stop shipping and they go feral").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
-                card.addView(Ui.body(this, "After 48 hours with no ship the horde goes feral. Your streak resets, everyone shrinks a size, and the horde can lock the apps you choose until you push. 72 hours later it falls.\n\nSaturday and Sunday are rest days. You can change that in Setup.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+                card.addView(Ui.body(this, "After 48 hours with no ship the horde goes feral. Your streak resets, the party loses a fifth of its growth, and the horde can lock the apps you choose until you push. 72 hours later it falls and the party turns to stone.\n\nSaturday and Sunday are rest days. You can change that in Setup.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             3 -> {
                 card.gravity = Gravity.START
@@ -338,6 +382,7 @@ class MainActivity : Activity() {
                 et.setText(if (typedUser.isNotEmpty()) typedUser else Prefs.username(this))
                 et.contentDescription = "username"
                 card.addView(et, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 12)))
+                page.addView(Ui.text(this, "Mostly push to private or company repos? Add a token in Setup after this. Until then only public work counts.", 12f, R.color.on_den_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
                 page.addView(Ui.button(this, "Continue") {
                     val name = et.text.toString().trim().removePrefix("@")
                     typedUser = name
@@ -377,7 +422,7 @@ class MainActivity : Activity() {
     }
 
     private fun starterTiles(into: LinearLayout) {
-        for (id in Dex.starters) {
+        for (id in Engine.starters(GameStore.recent(this, 5_000))) {
             val sp = Dex.get(id)
             val on = picked == id
             val tile = Ui.row(this)
@@ -420,7 +465,7 @@ class MainActivity : Activity() {
         if (g.needsStarter) {
             val card = Ui.card(this)
             card.addView(Ui.h(this, if (g.falls > 0) "The horde fell. Start again." else "Pick an egg"))
-            card.addView(Ui.body(this, "It hatches on your next push." + (if (g.statues().isNotEmpty()) " Your statues are waiting in the Horde tab." else "")), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            card.addView(Ui.body(this, "It hatches on your next push." + (if (g.statues().isNotEmpty()) " Your statues are waiting in the Horde tab. A gem wakes one, a feast wakes them all." else "")), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
             starterTiles(card)
             card.addView(Ui.button(this, if (picked == null) "Pick one above" else "Start with ${Dex.get(picked!!).name}") {
                 val p = picked
@@ -445,12 +490,13 @@ class MainActivity : Activity() {
             state.contentDescription = "state $label"
             top.addView(state, Ui.lp(0, Ui.WRAP, 1f))
             val rest = Engine.isRest(g, now, tz)
+            val due = Fmt.due(this, Engine.deadline(g, tz))
             val next = when {
                 Engine.hibernating(g, now) -> "Hibernating"
                 rest -> "Rest day. Clock paused"
-                mood == Mood.FERAL -> "Falls in ${Fmt.hours(Engine.hoursToNext(g))}"
-                mood == Mood.RESTLESS -> "Feral in ${Fmt.hours(Engine.hoursToNext(g))}"
-                else -> "Restless in ${Fmt.hours(Engine.hoursToNext(g))}"
+                mood == Mood.FERAL -> "Falls $due"
+                mood == Mood.RESTLESS -> "Feral $due"
+                else -> "Restless $due"
             }
             top.addView(Ui.text(this, next, 13f, R.color.ink_soft, mono = true))
             clock.addView(top)
@@ -458,6 +504,8 @@ class MainActivity : Activity() {
             val last = if (g.lastShipAt > 0) "Last ship ${Fmt.ago(now - g.lastShipAt)}." else "No ship yet."
             val extra = when {
                 mood == Mood.FERAL && now < g.truceUntil -> " Truce: apps open for ${Fmt.hours(((g.truceUntil - now) / Rules.H).toInt() + 1)}."
+                rest && mood != Mood.CALM -> " The clock starts again ${Fmt.due(this, Engine.deadline(g, tz))}."
+                GameStore.holding -> " Checking GitHub before anything changes."
                 mood == Mood.FERAL && Prefs.lockEnabled(this) -> " Your chosen apps are locked. Ship to lift it."
                 mood == Mood.FERAL -> " Ship to calm the horde."
                 else -> ""
@@ -515,7 +563,9 @@ class MainActivity : Activity() {
         }
         pantry.addView(flavors, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
         val nowFlavor = Rules.flavorAt(Rules.localHour(now, tz))
-        pantry.addView(Ui.text(this, "A push right now makes ${nowFlavor.label} chow. Monsters graze on their own.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
+        val full = g.pantry >= g.pantryCap
+        pantry.addView(Ui.text(this, if (full) "The pantry is full. Extra chow now turns into growth for ${lead?.name ?: "your lead"}, 1 for every 10."
+            else "A push right now makes ${nowFlavor.label} chow. Monsters graze on their own.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
         val row = Ui.row(this)
         row.addView(Ui.button(this, if (syncing) "Checking..." else "Sync now", Ui.LIGHT) { sync(true) }, Ui.lp(0, Ui.WRAP, 1f))
         if (lead != null) row.addView(Ui.button(this, "Feast (${Rules.FEAST_COST} gems)", Ui.LIGHT) { feast() }, Ui.lp(0, Ui.WRAP, 1f, start = Ui.dp(this, 8)))
@@ -727,9 +777,9 @@ class MainActivity : Activity() {
             })
             m.id in g.party -> {
                 if (g.party.firstOrNull() != m.id) act.addView(Ui.button(this, "Make lead") { change({ game, _ -> Engine.makeLead(game, m.id) }, "") })
-                act.addView(Ui.button(this, "Send to the den", Ui.LIGHT) { change({ game, _ -> Engine.toDen(game, m.id) }, "The last monster in the party has to stay.") })
+                act.addView(Ui.button(this, "Send to the den", Ui.LIGHT) { change({ game, _ -> Engine.toDen(game, m.id) }, if (Engine.mood(g) != Mood.CALM) "Nobody leaves while the horde is uneasy. Ship first." else "The last monster in the party has to stay.") })
             }
-            else -> act.addView(Ui.button(this, "Join the party") { change({ game, _ -> Engine.toParty(game, m.id) }, "The party is full. Send someone to the den first.") })
+            else -> act.addView(Ui.button(this, "Join the party") { change({ game, _ -> Engine.toParty(game, m.id) }, if (Engine.mood(g) == Mood.RESTLESS || Engine.mood(g) == Mood.FERAL) "Nobody joins while the horde is uneasy. Ship first." else "The party is full. Send someone to the den first.") })
         }
         act.addView(Ui.button(this, "Rename", Ui.LIGHT) { rename(m) })
         act.addView(Ui.button(this, "Share", Ui.LIGHT) { ShareCard.share(this, m.id) })
@@ -791,7 +841,8 @@ class MainActivity : Activity() {
         if (g.nest.isEmpty()) {
             eggs.addView(Ui.body(this, "No eggs waiting. One gem buys one egg. What is inside is decided when you buy it."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
         } else {
-            eggs.addView(Ui.body(this, "Tap an egg three times to crack it."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+            val lead = g.lead
+            eggs.addView(Ui.body(this, "Tap an egg three times to crack it." + (if (lead != null) "\n${lead.name}: \"${GameStore.lines(this).say("newegg", lead, g, g.nest.size + g.hatched * 3L)}\"" else "")), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
             val tiles = g.nest.mapIndexed { i, e ->
                 tile(Ui.sprite(this, Art.egg(this, e.species, e.taps), 84), Dex.get(e.species).rarity.label, "${3 - e.taps} taps to go", "", false).apply {
                     contentDescription = "egg $i"
@@ -827,17 +878,19 @@ class MainActivity : Activity() {
         spend.addView(Ui.button(this, "Throw a feast (${Rules.FEAST_COST} gems)", Ui.LIGHT) { feast() })
         spend.addView(Ui.body(this, "Fills every belly, gives the party a day of growth and wakes every statue."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
         spend.addView(Ui.button(this, "Stock the pantry (1 gem)", Ui.LIGHT) {
-            val ok = GameStore.edit(this) { game, t -> Engine.stockUp(game, t, GameStore.tz(t)) }
+            val evs = ArrayList<Event>()
+            val ok = GameStore.edit(this) { game, t -> Engine.stockUp(game, t, GameStore.tz(t), evs) }
             if (!ok) toast("No gems to spend.")
             PetRuntime.refresh(this)
             render()
+            celebrate(evs)
         })
         spend.addView(Ui.body(this, "Adds ${Rules.STOCK_CHOW} chow. Handy before a holiday."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
         page.addView(spend)
 
         val earn = Ui.card(this)
         earn.addView(Ui.h(this, "How to earn gems"))
-        earn.addView(Ui.body(this, "1 for each merged pull request, up to 3 a day\n1 for each keeper level\n1 for shipping on 5 days in a week\nStreaks: day 7, 14, 30, 60, 100, 180 and 365"), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+        earn.addView(Ui.body(this, "1 for your first merged pull request of the day\n1 for every third day you ship\n1 for shipping on 5 days in a week\n1 for each keeper level\nStreaks: day 7, 14, 30, 60, 100, 180 and 365"), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
         page.addView(earn)
         return page
     }
@@ -859,7 +912,7 @@ class MainActivity : Activity() {
             keeper.addView(Ui.body(this, "The top rank. ${g.lifetimeChow} chow earned in total."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
         }
         keeper.addView(Ui.text(this,
-            "Streak        ${g.streak} days (best ${g.bestStreak})\n" +
+            "Streak        ${Engine.liveStreak(g, now, GameStore.tz(now))} days (best ${g.bestStreak})\n" +
             "Days shipped  ${g.shipDays}\n" +
             "Pushes        ${g.pushes}\n" +
             "Merged PRs    ${g.merges}\n" +

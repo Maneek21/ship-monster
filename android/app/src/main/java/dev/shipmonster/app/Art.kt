@@ -116,6 +116,19 @@ object Art {
 object Fmt {
     fun hours(h: Int): String = if (h >= 48) "${h / 24}d ${h % 24}h" else "${h}h"
 
+    /** When a game-time deadline lands on the user's real clock: "in 5h", "in 20m" or "Mon 14:00". */
+    fun due(c: Context, gameTime: Long): String {
+        if (gameTime == Long.MAX_VALUE) return "never"
+        val real = gameTime - GameStore.clockOffset(c)
+        val left = real - System.currentTimeMillis()
+        return when {
+            left <= 60_000 -> "any minute"
+            left < 60 * 60_000 -> "in ${left / 60_000}m"
+            left < 20 * 60 * 60_000L -> "in ${(left + 30 * 60_000) / (60 * 60_000)}h"
+            else -> java.text.SimpleDateFormat("EEE HH:mm", java.util.Locale.getDefault()).format(java.util.Date(real))
+        }
+    }
+
     fun ago(ms: Long): String {
         val m = ms / 60_000
         return when {

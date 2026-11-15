@@ -3,7 +3,7 @@ package dev.shipmonster.app.core
 import dev.shipmonster.app.core.Rules.D
 import dev.shipmonster.app.core.Rules.H
 
-enum class Ev { FED, MERGED, HATCHED, EVOLVED, DROPPED, RESTLESS, FERAL, CALMED, FALL, BENCHED, LEVEL, MILESTONE, BOUNTY, GEM }
+enum class Ev { FED, MERGED, HATCHED, EVOLVED, DROPPED, RESTLESS, WARNING, FERAL, CALMED, FALL, BENCHED, LEVEL, MILESTONE, BOUNTY, GEM }
 
 class Event(val kind: Ev, val monster: Monster? = null, val n: Int = 0, val text: String = "")
 
@@ -23,12 +23,81 @@ object Engine {
         else -> Mood.CALM
     }
 
-    fun lockActive(g: Game, now: Long): Boolean = mood(g) == Mood.FERAL && now >= g.truceUntil
+    /** The lock holds while the horde is feral, except during a truce and on rest days. */
+    fun lockActive(g: Game, now: Long, tz: Long): Boolean =
+        mood(g) == Mood.FERAL && now >= g.truceUntil && !isRest(g, now, tz)
 
     fun hibernating(g: Game, t: Long): Boolean = t >= g.hibernateFrom && t < g.hibernateUntil
 
-    fun isRest(g: Game, t: Long, tz: Long): Boolean =
-        hibernating(g, t) || Rules.dow(Rules.localDay(t, tz)) in g.restDays
+    private fun restDay(g: Game, day: Long): Boolean =
+        Rules.dow(day) in (if (day <= g.restChangedDay) g.restPrev else g.restDays)
+
+    fun isRest(g: Game, t: Long, tz: Long): Boolean = hibernating(g, t) || restDay(g, Rules.localDay(t, tz))
+
+    /** Changes a rest day. Today keeps the old rule, so the clock cannot be paused on the spot. */
+    fun setRestDay(g: Game, dow: Int, on: Boolean, now: Long, tz: Long): Boolean {
+        if (dow !in 0..6 || on == (dow in g.restDays)) return false
+        if (on && g.restDays.size >= Rules.MAX_REST_DAYS) return false
+        val today = Rules.localDay(now, tz)
+        if (g.restChangedDay != today) {
+            g.restPrev.clear()
+            g.restPrev.addAll(g.restDays)
+            g.restChangedDay = today
+        }
+        if (on) g.restDays.add(dow) else g.restDays.remove(dow)
+        return true
+    }
+
+    /** Awake time between two moments: rest days and hibernation do not count. */
+    fun awakeBetween(g: Game, from: Long, to: Long, tz: Long): Long {
+        var t = from
+        var sum = 0L
+        var guard = 0
+        while (t < to && guard++ < 500) {
+            var end = minOf(to, (Rules.localDay(t, tz) + 1) * D - tz)
+            if (g.hibernateUntil > t && g.hibernateUntil < end) end = g.hibernateUntil
+            if (g.hibernateFrom > t && g.hibernateFrom < end) end = g.hibernateFrom
+            if (!isRest(g, t, tz)) sum += end - t
+            t = end
+        }
+        return sum
+    }
+
+    /** The real moment the idle clock will reach [hours], counted from the last tick. Long.MAX_VALUE if never. */
+    fun whenIdle(g: Game, hours: Int, tz: Long): Long {
+        if (g.party.isEmpty()) return Long.MAX_VALUE
+        var rem = hours * H - g.idleMs
+        var t = g.lastTick
+        if (rem <= 0) return t
+        var guard = 0
+        while (guard++ < 200) {
+            var end = (Rules.localDay(t, tz) + 1) * D - tz
+            if (g.hibernateUntil > t && g.hibernateUntil < end) end = g.hibernateUntil
+            if (g.hibernateFrom > t && g.hibernateFrom < end) end = g.hibernateFrom
+            if (!isRest(g, t, tz)) {
+                if (rem <= end - t) return t + rem
+                rem -= end - t
+            }
+            t = end
+        }
+        return Long.MAX_VALUE
+    }
+
+    /** The real moment of the next change for the worse: restless, feral or the fall. */
+    fun deadline(g: Game, tz: Long): Long = when (mood(g)) {
+        Mood.EMPTY -> Long.MAX_VALUE
+        Mood.CALM -> whenIdle(g, Rules.RESTLESS_H, tz)
+        Mood.RESTLESS -> whenIdle(g, Rules.FERAL_H, tz)
+        Mood.FERAL -> whenIdle(g, Rules.FALL_H, tz)
+    }
+
+    /** The real moment of the next change that cannot be taken back: going feral, or the fall. */
+    fun pointOfNoReturn(g: Game, tz: Long): Long =
+        if (g.party.isEmpty()) Long.MAX_VALUE else whenIdle(g, if (g.feral) Rules.FALL_H else Rules.FERAL_H, tz)
+
+    /** The streak as it stands right now: it is already gone once a working day has passed without a ship. */
+    fun liveStreak(g: Game, now: Long, tz: Long): Int =
+        if (g.streak > 0 && g.lastShipDay != Long.MIN_VALUE && !gapIsRest(g, g.lastShipDay, Rules.localDay(now, tz) , tz)) 0 else g.streak
 
     /** Awake hours until the next change of state. 0 when there is no party. */
     fun hoursToNext(g: Game): Int {
@@ -47,13 +116,12 @@ object Engine {
     /** When the app should next wake itself to re-check. */
     fun nextWakeAt(g: Game, now: Long, tz: Long): Long {
         var best = (Rules.localDay(now, tz) + 1) * D - tz + 60_000
-        if (g.party.isNotEmpty() && !isRest(g, now, tz)) {
-            val target = when (mood(g)) {
-                Mood.CALM -> Rules.RESTLESS_H; Mood.RESTLESS -> Rules.FERAL_H; else -> Rules.FALL_H
-            }
-            val at = now + (target * H - g.idleMs).coerceAtLeast(0) + 1000
-            if (at < best) best = at
-        }
+        val next = deadline(g, tz)
+        if (next != Long.MAX_VALUE && next + 1000 < best) best = maxOf(now, next) + 1000
+        val evening = Rules.localDay(now, tz) * D - tz + 18 * H + 60_000     // the streak reminder
+        if (evening > now && evening < best) best = evening
+        val warn = whenIdle(g, Rules.WARN_H, tz)
+        if (warn > now && warn + 1000 < best) best = warn + 1000
         if (g.truceUntil > now && g.truceUntil + 1000 < best) best = g.truceUntil + 1000
         if (g.hibernateUntil > now && g.hibernateUntil + 1000 < best) best = g.hibernateUntil + 1000
         return best
@@ -96,6 +164,9 @@ object Engine {
             g.note(at, "restless", "A day without shipping. The horde is restless.")
             evs.add(Event(Ev.RESTLESS, g.lead))
         }
+        if (!g.feral && before < Rules.WARN_H * H && g.idleMs >= Rules.WARN_H * H && g.idleMs < Rules.FERAL_H * H) {
+            evs.add(Event(Ev.WARNING, g.lead, Rules.FERAL_H - Rules.WARN_H))
+        }
         if (!g.feral && g.idleMs >= Rules.FERAL_H * H) goFeral(g, at, evs)
         if (g.idleMs >= Rules.FALL_H * H) { fall(g, at, evs); return }
         for (m in g.partyMonsters()) {
@@ -115,6 +186,8 @@ object Engine {
             for (m in g.partyMonsters()) {
                 var pts = if (m.belly > 50) 10.0 else if (m.belly > 0) 4.0 else 0.0
                 if (pts > 0 && m.ateFav) pts += 2
+                // a busy day: one extra point for every ship after the first, up to five
+                if (pts > 0 && g.day == day) pts += (g.shipsToday - 1).coerceIn(0, 5)
                 if (pts > 0) grow(g, m, pts * (1 + 0.1 * m.stars), at, evs)
             }
         }
@@ -123,9 +196,10 @@ object Engine {
     }
 
     private fun rollDay(g: Game, day: Long) {
-        if (g.day == day) return
+        if (day <= g.day) return          // a late event from an earlier day must not reopen that day's allowances
         g.day = day
         g.pushesToday = 0
+        g.shipsToday = 0
         g.gemsToday = 0
         for (m in g.monsters) m.treats = 0
     }
@@ -135,13 +209,11 @@ object Engine {
         val lost = g.streak
         g.streak = 0
         for (m in g.partyMonsters()) {
-            val s = m.stage
-            if (s > 1) {
-                m.gp = Rules.STAGE_GP[s - 2].toDouble()
-                evs.add(Event(Ev.DROPPED, m, s - 1))
-            }
+            val before = m.stage
+            m.gp = (m.gp - maxOf(15.0, m.gp * 0.2)).coerceAtLeast(0.0)
+            if (m.stage < before) evs.add(Event(Ev.DROPPED, m, m.stage))
         }
-        g.note(at, "feral", "Two days without shipping. The horde went feral" +
+        g.note(at, "feral", "Two days without shipping. The horde went feral, everyone in the party lost a fifth of their growth" +
             (if (lost > 0) " and your $lost-day streak is gone." else "."))
         evs.add(Event(Ev.FERAL, g.lead, lost))
     }
@@ -149,10 +221,10 @@ object Engine {
     private fun fall(g: Game, at: Long, evs: ArrayList<Event>) {
         val lead = g.lead
         val party = g.partyMonsters()
-        var gone = 0
-        var stone = 0
         for (m in party) {
-            if (m.sp.rarity == Rarity.COMMON) { g.monsters.remove(m); gone++ } else { m.stone = true; stone++ }
+            m.stone = true
+            m.gp = Math.floor(m.gp / 2)
+            m.emptyMs = 0
         }
         g.party.clear()
         g.falls++
@@ -161,15 +233,15 @@ object Engine {
         g.truceUntil = 0
         g.truceUsed = false
         val days = if (lead != null) ((at - lead.bornAt) / D).coerceAtLeast(0) else 0
-        val text = "The horde fell. Led by ${lead?.title ?: "nobody"}, who lasted $days days. " +
-            "$gone wandered off, $stone turned to stone."
+        val text = "The horde fell. Led by ${lead?.title ?: "nobody"}, hatched $days days ago. " +
+            (if (party.size == 1) "It turned to stone" else "All ${party.size} turned to stone") + " and lost half their growth."
         g.hall.add(0, LogEntry(at, "fall", text))
         g.note(at, "fall", text)
-        evs.add(Event(Ev.FALL, lead, gone + stone, text))
-        val next = g.den().firstOrNull()
-        if (next != null) {
-            g.party.add(next.id)
-            g.note(at, "lead", "${next.name} stepped out of the den to lead what is left.")
+        evs.add(Event(Ev.FALL, lead, party.size, text))
+        val fresh = g.den().sortedByDescending { it.gp }.take(g.slots)
+        for (m in fresh) g.party.add(m.id)
+        if (fresh.isNotEmpty()) {
+            g.note(at, "lead", fresh.joinToString(", ") { it.name } + " stepped out of the den to carry on.")
         }
     }
 
@@ -232,13 +304,21 @@ object Engine {
         val egg = g.starter
         if (egg != null) {
             g.starter = null
-            val m = spawn(g, egg, at)
+            val have = g.owned(egg)
+            val m = if (have == null) spawn(g, egg, at) else have.also {
+                // every common is already owned, so the egg wakes its twin
+                if (it.stone) wakeStatue(g, it)
+                if (it.stars < Rules.MAX_STARS) it.stars++
+                if (it.id !in g.party) g.party.add(it.id)
+                g.note(at, "hatch", "${it.name} is back.")
+            }
             evs.add(Event(Ev.HATCHED, m))
         }
+        g.shipsToday++
         if (merge) {
             g.merges++
             var gem = 0
-            if (g.gemsToday < 3) { g.gems++; g.gemsToday++; gem = 1 }
+            if (g.gemsToday < Rules.MERGE_GEMS_PER_DAY) { g.gems++; g.gemsToday++; gem = 1 }
             g.note(at, "merge", "Merged a pull request$where. +10 ${flavor.label} chow" + (if (gem > 0) ", +1 gem." else "."))
             addChow(g, 10, flavor, at, evs)
             evs.add(Event(Ev.MERGED, g.lead, gem))
@@ -251,8 +331,13 @@ object Engine {
             evs.add(Event(Ev.FED, g.lead, n))
         }
 
-        if (day != g.lastShipDay) {
+        if (g.lastShipDay == Long.MIN_VALUE || day > g.lastShipDay) {
             g.shipDays++
+            if (g.shipDays % Rules.SHIP_DAYS_PER_GEM == 0) {
+                g.gems++
+                g.note(at, "gem", "Day ${g.shipDays} of shipping. +1 gem.")
+                evs.add(Event(Ev.GEM, g.lead, 1))
+            }
             val keeps = g.streak > 0 && g.lastShipDay != Long.MIN_VALUE && gapIsRest(g, g.lastShipDay, day, tz)
             g.streak = if (keeps) g.streak + 1 else 1
             if (g.streak > g.bestStreak) g.bestStreak = g.streak
@@ -274,11 +359,13 @@ object Engine {
         }
 
         val wasFeral = g.feral
-        g.idleMs = 0
+        // A ship that is only seen later still counts from the moment it happened.
+        g.idleMs = if (at >= g.lastTick) 0 else minOf(g.idleMs, awakeBetween(g, at, g.lastTick, tz))
+        if (at > g.lastShipAt) g.lastShipAt = at
+        if (g.idleMs >= Rules.FERAL_H * H) { graze(g); return evs }
         g.feral = false
         g.truceUntil = 0
         g.truceUsed = false
-        if (at > g.lastShipAt) g.lastShipAt = at
         if (wasFeral) {
             g.note(at, "calm", "You shipped. The horde calmed down.")
             evs.add(Event(Ev.CALMED, g.lead))
@@ -287,14 +374,14 @@ object Engine {
         return evs
     }
 
-    private fun gapIsRest(g: Game, from: Long, to: Long, tz: Long): Boolean {
+    internal fun gapIsRest(g: Game, from: Long, to: Long, tz: Long): Boolean {
         if (to <= from) return true
         if (to - from > 40) return false
         val hFrom = Rules.localDay(g.hibernateFrom, tz)
         val hTo = Rules.localDay(g.hibernateUntil, tz)
         for (d in from + 1 until to) {
             val hib = g.hibernateUntil > 0 && d in hFrom..hTo
-            if (!hib && Rules.dow(d) !in g.restDays) return false
+            if (!hib && !restDay(g, d)) return false
         }
         return true
     }
@@ -311,8 +398,16 @@ object Engine {
         return m
     }
 
+    /** Up to three commons to choose from: the classic three at first, later whichever are not owned. */
+    fun starters(g: Game): List<String> {
+        val free = Dex.of(Rarity.COMMON).map { it.id }.filter { g.owned(it) == null }
+        val classic = Dex.starters.filter { it in free }
+        val pool = (classic + free.filter { it !in classic } + Dex.starters).distinct()
+        return pool.take(3)
+    }
+
     fun pickStarter(g: Game, species: String): Boolean {
-        if (!g.needsStarter || species !in Dex.starters) return false
+        if (!g.needsStarter || species !in starters(g)) return false
         g.starter = species
         return true
     }
@@ -320,12 +415,13 @@ object Engine {
     fun toParty(g: Game, id: Int): Boolean {
         val m = g.monster(id) ?: return false
         if (m.stone || id in g.party || g.party.size >= g.slots) return false
+        if (mood(g) == Mood.RESTLESS || mood(g) == Mood.FERAL) return false   // nobody changes sides while the horde is uneasy
         g.party.add(id)
         return true
     }
 
     fun toDen(g: Game, id: Int): Boolean {
-        if (id !in g.party || g.party.size <= 1) return false
+        if (id !in g.party || g.party.size <= 1 || mood(g) != Mood.CALM) return false
         g.party.remove(Integer.valueOf(id))
         return true
     }
@@ -347,7 +443,7 @@ object Engine {
     // ------------------------------------------------------------ spending
 
     /** 2 = favourite flavour, 1 = fed, -1 = not in the party, -2 = no treats left today, -3 = not enough chow. */
-    fun treat(g: Game, id: Int, now: Long): Int {
+    fun treat(g: Game, id: Int, now: Long, evs: ArrayList<Event> = ArrayList()): Int {
         val m = g.monster(id) ?: return -1
         if (id !in g.party || m.stone) return -1
         if (m.treats >= Rules.TREATS_PER_DAY) return -2
@@ -363,7 +459,7 @@ object Engine {
         m.treats++
         g.treatsGiven++
         if (gotFav) m.ateFav = true
-        grow(g, m, if (gotFav) 2.0 else 1.0, now, ArrayList())
+        grow(g, m, if (gotFav) 2.0 else 1.0, now, evs)
         return if (gotFav) 2 else 1
     }
 
@@ -382,10 +478,10 @@ object Engine {
         return evs
     }
 
-    fun stockUp(g: Game, now: Long, tz: Long): Boolean {
+    fun stockUp(g: Game, now: Long, tz: Long, evs: ArrayList<Event> = ArrayList()): Boolean {
         if (g.gems < 1) return false
         g.gems--
-        addChow(g, Rules.STOCK_CHOW, Rules.flavorAt(Rules.localHour(now, tz)), now, ArrayList())
+        addChow(g, Rules.STOCK_CHOW, Rules.flavorAt(Rules.localHour(now, tz)), now, evs)
         g.note(now, "stock", "Stocked the pantry. +${Rules.STOCK_CHOW} chow.")
         return true
     }

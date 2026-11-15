@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import dev.shipmonster.app.core.Engine
 import dev.shipmonster.app.core.Ev
 import dev.shipmonster.app.core.Event
 import dev.shipmonster.app.core.Game
@@ -77,9 +78,10 @@ object Notifier {
             val seed = g.lastTick / 60_000 + e.kind.ordinal
             val pair: Pair<String, String>? = when (e.kind) {
                 Ev.RESTLESS -> "The horde is restless" to "$name: \"${bank.say("restless", m, g, seed)}\""
+                Ev.WARNING -> "Feral in ${e.n} hours" to "$name: \"${bank.say("restless", m, g, seed + 1)}\" One push or merged pull request keeps the horde calm."
                 Ev.FERAL -> "The horde went feral" to
                     (if (lockOn) "Your chosen apps are locked until you ship." else "Ship something to calm it down.") +
-                    (if (e.n > 0) " Your ${e.n}-day streak is gone." else "")
+                    (if (e.n > 0) " Your ${e.n}-day streak is gone." else "") + " $name: \"${bank.say("dropped", m, g, seed)}\""
                 Ev.FALL -> "The horde has fallen" to e.text
                 Ev.CALMED -> "The horde is calm again" to "$name: \"${bank.say("calmed", m, g, seed)}\""
                 Ev.EVOLVED -> "$name grew into a ${Rules.STAGE_NAMES[e.n]}" to "\"${bank.say("evolved", m, g, seed)}\""
@@ -92,6 +94,18 @@ object Notifier {
             ensureChannels(c)
             manager(c).notify(ID_PET + 10 + e.kind.ordinal, build(c, CH_PET, pair.first, pair.second).setAutoCancel(true).build())
         }
+    }
+
+    /** Once a day, from six in the evening: nothing shipped today and a streak is on the line. */
+    fun streakReminder(c: Context, g: Game, now: Long, tz: Long) {
+        if (!Prefs.notifyEnabled(c) || !canPost(c)) return
+        val day = Rules.localDay(now, tz)
+        if (Rules.localHour(now, tz) < 18 || g.lastShipDay >= day || Prefs.streakWarnDay(c) == day) return
+        if (Engine.liveStreak(g, now, tz) < 2 || Engine.isRest(g, now, tz) || g.party.isEmpty() || g.feral) return
+        Prefs.setStreakWarnDay(c, day)
+        ensureChannels(c)
+        val text = "Nothing shipped yet today. Push before midnight to make it ${g.streak + 1}."
+        manager(c).notify(ID_PET + 40, build(c, CH_PET, "Your ${g.streak}-day streak ends tonight", text).setAutoCancel(true).build())
     }
 
     /** The lock should be running but Android would not let it start from the background. */

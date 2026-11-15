@@ -55,12 +55,15 @@ class Game {
 
     var day = Long.MIN_VALUE              // local day the daily counters belong to
     var pushesToday = 0
+    var shipsToday = 0
     var gemsToday = 0
     var week = Long.MIN_VALUE
     var weekShipDays = 0
     var weekPaid = false
 
     val restDays = HashSet<Int>().apply { add(0); add(6) }
+    val restPrev = HashSet<Int>()           // the rest days in force up to and including restChangedDay
+    var restChangedDay = Long.MIN_VALUE
     var hibernateFrom = 0L
     var hibernateUntil = 0L
 
@@ -118,7 +121,7 @@ class Game {
         o.put("lastShipAt", lastShipAt).put("lastShipDay", lastShipDay).put("idleMs", idleMs)
             .put("feral", feral).put("truceUntil", truceUntil).put("truceUsed", truceUsed)
             .put("streak", streak).put("bestStreak", bestStreak)
-        o.put("day", day).put("pushesToday", pushesToday).put("gemsToday", gemsToday)
+        o.put("day", day).put("shipsToday", shipsToday).put("restPrev", JSONArray(restPrev.sorted())).put("restChangedDay", restChangedDay).put("pushesToday", pushesToday).put("gemsToday", gemsToday)
             .put("week", week).put("weekShipDays", weekShipDays).put("weekPaid", weekPaid)
         o.put("restDays", JSONArray(restDays.sorted())).put("hibernateFrom", hibernateFrom)
             .put("hibernateUntil", hibernateUntil)
@@ -171,7 +174,10 @@ class Game {
             g.truceUntil = o.optLong("truceUntil"); g.truceUsed = o.optBoolean("truceUsed")
             g.streak = o.optInt("streak"); g.bestStreak = o.optInt("bestStreak")
             g.day = o.optLong("day", Long.MIN_VALUE); g.pushesToday = o.optInt("pushesToday")
-            g.gemsToday = o.optInt("gemsToday"); g.week = o.optLong("week", Long.MIN_VALUE)
+            g.gemsToday = o.optInt("gemsToday"); g.shipsToday = o.optInt("shipsToday")
+            g.restChangedDay = o.optLong("restChangedDay", Long.MIN_VALUE)
+            o.optJSONArray("restPrev")?.let { a -> for (i in 0 until a.length()) g.restPrev.add(a.getInt(i)) }
+            g.week = o.optLong("week", Long.MIN_VALUE)
             g.weekShipDays = o.optInt("weekShipDays"); g.weekPaid = o.optBoolean("weekPaid")
             val r = o.optJSONArray("restDays")
             if (r != null) { g.restDays.clear(); for (i in 0 until r.length()) g.restDays.add(r.getInt(i)) }

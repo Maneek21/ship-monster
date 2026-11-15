@@ -54,6 +54,10 @@ object Prefs {
     fun setHintDone(c: Context, key: String) = p(c).edit().putBoolean("hint_$key", true).apply()
     fun newsSeen(c: Context): Long = p(c).getLong("news_seen", 0L)
     fun setNewsSeen(c: Context, v: Long) = p(c).edit().putLong("news_seen", v).apply()
+    /** Real time of the last sync that actually heard back from GitHub. */
+    fun lastGoodSync(c: Context): Long = p(c).getLong("last_good_sync", 0L)
+    fun streakWarnDay(c: Context): Long = p(c).getLong("streak_warn_day", 0L)
+    fun setStreakWarnDay(c: Context, v: Long) = p(c).edit().putLong("streak_warn_day", v).apply()
     fun lastStatus(c: Context): String = p(c).getString("last_status", "") ?: ""
     fun setLastStatus(c: Context, v: String) = p(c).edit().putString("last_status", v).apply()
 
@@ -91,6 +95,7 @@ object Prefs {
         p(c).edit()
             .putBoolean("first_sync_done", true)
             .putBoolean("last_sync_ok", true)
+            .putLong("last_good_sync", System.currentTimeMillis())
             .putLong("last_seen", lastSeen)
             .putLong("last_sync_at", System.currentTimeMillis())
             .putString("last_sync_message", message)

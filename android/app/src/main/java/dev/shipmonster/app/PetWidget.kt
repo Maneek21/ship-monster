@@ -61,12 +61,14 @@ class PetWidget : AppWidgetProvider() {
                 views.setProgressBar(R.id.pet_belly, 100, lead.belly.toInt(), false)
                 if (android.os.Build.VERSION.SDK_INT >= 31) views.setColorStateList(R.id.pet_belly, "setProgressTintList",
                     ColorStateList.valueOf(context.getColor(stateColor(mood))))
-                val state = when (mood) {
-                    Mood.FERAL -> "FERAL. Falls in ${Fmt.hours(Engine.hoursToNext(g))}"
-                    Mood.RESTLESS -> "Feral in ${Fmt.hours(Engine.hoursToNext(g))}"
-                    else -> "Day ${g.streak}"
+                val due = Fmt.due(context, Engine.deadline(g, tz))
+                val state = when {
+                    Engine.isRest(g, now, tz) -> "Rest day"
+                    mood == Mood.FERAL -> "FERAL. Falls $due"
+                    mood == Mood.RESTLESS -> "Feral $due"
+                    else -> "Restless $due"
                 }
-                views.setTextViewText(R.id.pet_meta, "$state  |  ${g.pantry} chow  |  ${g.gems} gems")
+                views.setTextViewText(R.id.pet_meta, "$state  |  streak ${Engine.liveStreak(g, now, tz)}  |  ${g.gems} gems")
             }
             val open = PendingIntent.getActivity(
                 context, 0, Intent(context, MainActivity::class.java),

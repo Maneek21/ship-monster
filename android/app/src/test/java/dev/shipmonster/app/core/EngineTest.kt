@@ -81,13 +81,35 @@ class EngineTest {
     }
 
     @Test
-    fun mergesPayGemsUpToThreeADay() {
+    fun theFirstMergeOfTheDayPaysAGemAndSoDoesEveryThirdShippingDay() {
         val g = started()
         repeat(5) { Engine.ship(g, mon + 13 * h + it * 60_000L, true, 0) }
-        assertEquals(3, g.gems - (g.level - 1))
+        assertEquals(1, g.gems - (g.level - 1))
         assertEquals(5, g.merges)
         Engine.ship(g, mon + d + 13 * h, true, 0)
-        assertEquals(4, g.gems - (g.level - 1))
+        assertEquals(2, g.gems - (g.level - 1))
+        val before = g.gems - (g.level - 1)
+        Engine.ship(g, mon + 2 * d + 13 * h, false, 0)       // third day of shipping, no merge
+        assertEquals(before + 1, g.gems - (g.level - 1))
+    }
+
+    @Test
+    fun aLateEventFromYesterdayDoesNotReopenTheDay() {
+        val g = started()
+        Engine.ship(g, mon + d + 9 * h, true, 0)             // Tuesday: today's merge gem is taken
+        val gems = g.gems
+        Engine.ship(g, mon + 20 * h, true, 0)                // a Monday merge arrives late
+        Engine.ship(g, mon + d + 10 * h, true, 0)            // and another on Tuesday
+        assertEquals(gems, g.gems)
+        assertEquals(Rules.localDay(mon + d, 0), g.day)
+    }
+
+    @Test
+    fun aBusyDayGrowsALittleFaster() {
+        val g = started()
+        repeat(9) { Engine.ship(g, mon + 13 * h + it * 60_000L, false, 0) }
+        Engine.advance(g, mon + d + 60_000, 0)
+        assertEquals(15.0, g.lead!!.gp, 0.5)                 // 10 for the day, 5 for the extra ships, a little overflow
     }
 
     @Test
@@ -100,17 +122,18 @@ class EngineTest {
         val evs = Engine.advance(g, t0 + 24 * h, 0)
         assertTrue(evs.any { it.kind == Ev.RESTLESS })
         assertEquals(Mood.RESTLESS, Engine.mood(g))
-        assertFalse(Engine.lockActive(g, t0 + 24 * h))
+        assertFalse(Engine.lockActive(g, t0 + 24 * h, 0))
         val evs2 = Engine.advance(g, t0 + 48 * h, 0)
         assertTrue(evs2.any { it.kind == Ev.FERAL })
+        assertTrue(evs2.any { it.kind == Ev.WARNING })
         assertEquals(Mood.FERAL, Engine.mood(g))
-        assertTrue(Engine.lockActive(g, t0 + 48 * h))
+        assertTrue(Engine.lockActive(g, t0 + 48 * h, 0))
         assertEquals(0, g.streak)
         assertEquals(72, Engine.hoursToNext(g))
     }
 
     @Test
-    fun goingFeralDropsEveryPartyMonsterOneStage() {
+    fun goingFeralCostsThePartyAFifthOfItsGrowth() {
         val g = started()
         g.lead!!.gp = 150.0                      // a Brute, stage 4
         val den = add(g, "gravelkin", party = false)
@@ -118,8 +141,14 @@ class EngineTest {
         val evs = Engine.advance(g, mon + 12 * h + 48 * h, 0)
         assertTrue(evs.any { it.kind == Ev.DROPPED })
         assertEquals(3, g.lead!!.stage)
-        assertEquals(70.0, g.lead!!.gp, 0.001)
+        assertEquals(120.0, g.lead!!.gp, 0.001)
         assertEquals(4, den.stage)
+        // small monsters lose at least 15
+        val tiny = started()
+        tiny.lead!!.gp = 32.0
+        Engine.advance(tiny, mon + 12 * h + 48 * h, 0)
+        assertEquals(17.0, tiny.lead!!.gp, 0.001)
+        assertEquals(1, tiny.lead!!.stage)
     }
 
     @Test
@@ -127,28 +156,99 @@ class EngineTest {
         val g = started()
         val t = mon + 12 * h + 50 * h
         Engine.advance(g, t, 0)
-        assertTrue(Engine.lockActive(g, t))
+        assertTrue(Engine.lockActive(g, t, 0))
         val evs = Engine.ship(g, t + 60_000, false, 0)
         assertTrue(evs.any { it.kind == Ev.CALMED })
         assertEquals(Mood.CALM, Engine.mood(g))
-        assertFalse(Engine.lockActive(g, t + 60_000))
+        assertFalse(Engine.lockActive(g, t + 60_000, 0))
         assertEquals(1, g.streak)
     }
 
     @Test
     fun theHordeFallsAfterThreeDaysFeral() {
         val g = started()
+        g.lifetimeChow = 300                         // level 4: three party slots
         val rare = add(g, "gloomfang")
-        val resting = add(g, "fuzzlet", party = false)
+        rare.gp = 400.0
+        val small = add(g, "fuzzlet", party = false)
+        val big = add(g, "frostnip", party = false)
+        big.gp = 200.0
         g.restDays.clear()
         val evs = Engine.advance(g, mon + 12 * h + 120 * h, 0)
         assertTrue(evs.any { it.kind == Ev.FALL })
-        assertNull(g.owned("mossback"))          // the common is gone for good
-        assertTrue(rare.stone)                   // the rare is a statue
-        assertEquals(listOf(resting.id), g.party) // the den monster steps up
+        assertTrue(g.owned("mossback")!!.stone)      // nobody is deleted
+        assertTrue(rare.stone)
+        assertEquals(160.0, rare.gp, 0.001)          // 400, less a fifth when feral, halved by the fall
+        assertEquals(listOf(big.id, small.id), g.party)   // the den steps up, biggest first
         assertEquals(Mood.CALM, Engine.mood(g))
         assertEquals(1, g.falls)
         assertEquals(1, g.hall.size)
+    }
+
+    @Test
+    fun theDenIsNoHidingPlaceOnceTheHordeIsUneasy() {
+        val g = started()
+        g.lifetimeChow = 300
+        val b = add(g, "gravelkin")
+        val c = add(g, "fuzzlet", party = false)
+        g.restDays.clear()
+        Engine.advance(g, mon + 12 * h + 30 * h, 0)  // restless
+        assertFalse(Engine.toDen(g, b.id))
+        assertFalse(Engine.toParty(g, c.id))
+        Engine.ship(g, mon + 12 * h + 31 * h, false, 0)
+        assertTrue(Engine.toDen(g, b.id))
+        assertTrue(Engine.toParty(g, c.id))
+    }
+
+    @Test
+    fun aNewRestDayCountsFromTomorrow() {
+        val g = started()                            // Monday noon
+        g.restDays.clear()
+        val t = mon + 13 * h
+        assertTrue(Engine.setRestDay(g, 1, true, t, 0))      // make Monday a rest day, on a Monday
+        assertFalse(Engine.isRest(g, t, 0))                  // today keeps its old rule
+        assertTrue(Engine.isRest(g, t + 7 * d, 0))
+        assertTrue(Engine.setRestDay(g, 2, true, t, 0))
+        assertTrue(Engine.isRest(g, t + d, 0))               // Tuesday is tomorrow, so it counts
+        assertTrue(Engine.setRestDay(g, 3, true, t, 0))
+        assertFalse(Engine.setRestDay(g, 4, true, t, 0))     // three at most
+        assertFalse(Engine.setRestDay(g, 3, true, t, 0))     // no change
+    }
+
+    @Test
+    fun theLockRestsOnRestDaysAndDeadlinesSkipThem() {
+        val fri = mon + 4 * d
+        val g = Game.fresh(mon)
+        Engine.pickStarter(g, "mossback")
+        Engine.ship(g, mon + 2 * d + 12 * h, false, 0)       // Wednesday noon
+        Engine.advance(g, fri + 12 * h, 0)                   // Friday noon: 48 awake hours
+        assertEquals(Mood.FERAL, Engine.mood(g))
+        assertTrue(Engine.lockActive(g, fri + 13 * h, 0))
+        assertFalse(Engine.lockActive(g, fri + d + 13 * h, 0))   // Saturday
+        assertTrue(Engine.lockActive(g, fri + 3 * d + h, 0))     // Monday
+        // 72 awake hours from Friday noon: Fri 12h, Mon, Tue, Wed 12h
+        assertEquals(fri + 5 * d + 12 * h, Engine.deadline(g, 0))
+        assertEquals(Engine.deadline(g, 0), Engine.pointOfNoReturn(g, 0))
+        assertEquals(12 * h + 24 * h, Engine.awakeBetween(g, fri + 12 * h, fri + 4 * d, 0))
+        val calm = started()
+        assertEquals(mon + 12 * h + 24 * h, Engine.deadline(calm, 0))
+        assertEquals(mon + 12 * h + 48 * h, Engine.pointOfNoReturn(calm, 0))
+    }
+
+    @Test
+    fun theStreakShownIsGoneOnceAWorkdayIsMissed() {
+        val g = started()
+        Engine.ship(g, mon + d + 12 * h, false, 0)
+        assertEquals(2, Engine.liveStreak(g, mon + 2 * d + 23 * h, 0))   // Wednesday, still time
+        assertEquals(0, Engine.liveStreak(g, mon + 3 * d + h, 0))        // Thursday: Wednesday was missed
+        assertEquals(2, g.streak)
+    }
+
+    @Test
+    fun startersOfferCommonsNotYetOwned() {
+        val g = started()
+        assertEquals(listOf("cindermite", "puddlewump", "gravelkin"), Engine.starters(g))
+        assertEquals(Dex.starters, Engine.starters(Game.fresh(mon)))
     }
 
     @Test
@@ -405,8 +505,8 @@ class EngineTest {
         assertFalse(Engine.truce(g, t))                   // no gem
         g.gems = 2
         assertTrue(Engine.truce(g, t))
-        assertFalse(Engine.lockActive(g, t + 11 * h))
-        assertTrue(Engine.lockActive(g, t + 12 * h))
+        assertFalse(Engine.lockActive(g, t + 11 * h, 0))
+        assertTrue(Engine.lockActive(g, t + 12 * h, 0))
         assertFalse(Engine.truce(g, t + 13 * h))
         assertEquals(1, g.gems)
         assertTrue(Engine.nextWakeAt(g, t, 0) <= t + 12 * h + 1000)

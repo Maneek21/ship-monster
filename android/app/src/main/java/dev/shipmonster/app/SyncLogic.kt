@@ -98,7 +98,13 @@ object SyncLogic {
             val parents = o.optJSONArray("parents")?.length() ?: 0
             out.add(ShipEvent(time, parents >= 2, repo))
         }
-        return out
+        // This feed lists commits, not pushes. Commits within ten minutes of each other count as one push.
+        val kept = mutableListOf<ShipEvent>()
+        for (e in out.sortedBy { it.time }) {
+            val last = kept.lastOrNull()
+            if (last == null || e.merge || e.time - last.time > 10 * 60_000L) kept.add(e)
+        }
+        return kept
     }
 
     /** From GET /repos/{repo}/actions/runs?per_page=1&status=completed. Null when the repo has no finished runs. */
@@ -118,13 +124,13 @@ object SyncLogic {
      * less than 48 hours old, and no gap inside the run may reach 48 hours. That way a new pet
      * starts with the user's real streak and never arrives already a monster.
      */
-    fun firstSyncWindow(events: List<ShipEvent>, now: Long): List<ShipEvent> {
+    fun firstSyncWindow(events: List<ShipEvent>, now: Long, awake: (Long, Long) -> Long = { a, b -> b - a }): List<ShipEvent> {
         val sorted = events.filter { it.time <= now }.sortedBy { it.time }
         if (sorted.isEmpty()) return emptyList()
         val limit = Rules.FERAL_H * Rules.H
-        if (now - sorted.last().time >= limit) return emptyList()
+        if (awake(sorted.last().time, now) >= limit) return emptyList()
         var start = sorted.size - 1
-        while (start > 0 && sorted[start].time - sorted[start - 1].time < limit) start--
+        while (start > 0 && awake(sorted[start - 1].time, sorted[start].time) < limit) start--
         return sorted.subList(start, sorted.size)
     }
 
@@ -158,7 +164,17 @@ object SyncLogic {
         }
         // A first sync replays up to a month of work. Keep the growth and the streak, but start
         // everyone with a small purse: at least one gem for a first egg, at most three.
-        if (backdate) g.gems = g.gems.coerceIn(1, 3)
+        if (backdate) {
+            g.gems = g.gems.coerceIn(1, 3)
+            g.lifetimeChow = g.lifetimeChow.coerceAtMost(Rules.LEVEL_CHOW[2] - 1)
+            var extra = g.pantry - 40
+            while (extra > 0) {
+                var f = 0
+                for (i in 1..3) if (g.chow[i] > g.chow[f]) f = i
+                g.chow[f]--
+                extra--
+            }
+        }
         return ApplySummary(fed, merges, hatched, calmed, evolved, g.gems - gemsBefore, all)
     }
 

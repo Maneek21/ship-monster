@@ -10,7 +10,10 @@ object PetRuntime {
         val g = GameStore.load(app)
         val now = GameStore.now(app)
         PetWidget.refresh(app)
-        TickReceiver.scheduleNext(app, Engine.nextWakeAt(g, now, GameStore.tz(now)) - now)
-        LockService.ensure(app, Engine.lockActive(g, now))
+        val tz = GameStore.tz(now)
+        // while a deadline is waiting on a sync, look again in a few minutes
+        TickReceiver.scheduleNext(app, if (GameStore.holding) 5 * 60_000L else Engine.nextWakeAt(g, now, tz) - now)
+        LockService.ensure(app, Engine.lockActive(g, now, tz))
+        Notifier.streakReminder(app, g, now, tz)
     }
 }

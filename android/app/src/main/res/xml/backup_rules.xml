@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. Only the game itself is backed up; the GitHub token stays on the phone. -->
+<full-backup-content>
+    <include domain="sharedpref" path="game.xml" />
+</full-backup-content>

@@ -1,13 +1,15 @@
 package dev.shipmonster.app
 
 import android.content.Context
+import dev.shipmonster.app.core.Engine
 import dev.shipmonster.app.core.Ev
+import dev.shipmonster.app.core.Event
 import android.util.Log
 import java.io.IOException
 import java.time.Instant
 
 /** [situation] is the dialogue situation that best sums up what the sync brought. */
-class SyncOutcome(val message: String, val fed: Int, val ok: Boolean, val situation: String = "fedpush")
+class SyncOutcome(val message: String, val fed: Int, val ok: Boolean, val situation: String = "fedpush", val events: List<Event> = emptyList())
 
 /**
  * Pulls new pushes and merges from GitHub and feeds the pet.
@@ -68,8 +70,8 @@ object GitHubSync {
         val pushedMap = Prefs.repoPushed(c)
         val horizon = if (first) realNow - 30 * DAY else lastSeen
         val candidates = repos
-            .filter { it.pushedAt > horizon && pushedMap[it.fullName] != it.pushedAt }
-            .take(if (first) 6 else 4)
+            .filter { (if (first) it.pushedAt > horizon else true) && pushedMap[it.fullName] != it.pushedAt }
+            .take(if (first) 6 else 15)
 
         val events = mutableListOf<ShipEvent>()
         for (r in candidates) {
@@ -85,7 +87,10 @@ object GitHubSync {
             pushedMap[r.fullName] = r.pushedAt
         }
 
-        val fresh = if (first) SyncLogic.firstSyncWindow(events, realNow) else SyncLogic.newEvents(events, lastSeen)
+        val tzNow = GameStore.tz(realNow)
+        val peek = GameStore.recent(c, 60_000)
+        val fresh = if (first) SyncLogic.firstSyncWindow(events, realNow) { a, b -> Engine.awakeBetween(peek, a, b, tzNow) }
+        else SyncLogic.newEvents(events, lastSeen)
         // The game clock is real time plus whatever the test lab skipped, so real events are moved by the same amount.
         val offset = GameStore.clockOffset(c)
         val toApply = fresh.map { it.copy(time = it.time + offset) }
@@ -112,9 +117,9 @@ object GitHubSync {
             summary.hatched != null -> "hatched"
             summary.calmed -> "calmed"
             summary.evolved != null -> "evolved"
-            summary.merges > 0 -> "merged"
+            summary.merges > 0 && summary.gems > 0 -> "merged"
             else -> "fedpush"
         }
-        return SyncOutcome(message, summary.fed, true, situation)
+        return SyncOutcome(message, summary.fed, true, situation, summary.events)
     }
 }

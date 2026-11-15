@@ -1,5 +1,7 @@
 package dev.shipmonster.app
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.Gravity
 import android.widget.LinearLayout
 import dev.shipmonster.app.core.Engine
@@ -282,17 +284,15 @@ class SettingsActivity : Activity() {
             t.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10))
             t.contentDescription = "rest ${names[d]} " + (if (on) "on" else "off")
             t.setOnClickListener {
-                GameStore.edit(this) { game, _ ->
-                    if (d in game.restDays) game.restDays.remove(d) else if (game.restDays.size < 3) game.restDays.add(d)
-                    Unit
-                }
+                val ok = GameStore.edit(this) { game, t -> Engine.setRestDay(game, d, d !in game.restDays, t, GameStore.tz(t)) }
+                if (!ok) toast("Up to ${Rules.MAX_REST_DAYS} rest days a week.")
                 PetRuntime.refresh(this)
                 renderExtra()
             }
             days.addView(t, Ui.lp(0, Ui.WRAP, 1f, start = if (d > 0) Ui.dp(this, 4) else 0))
         }
         rest.addView(days, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
-        rest.addView(Ui.text(this, "Up to three days a week.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
+        rest.addView(Ui.text(this, "Up to three days a week. A change counts from tomorrow, so today keeps the rule it started with.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
         box.addView(rest)
 
         val hib = Ui.card(this)
@@ -320,8 +320,44 @@ class SettingsActivity : Activity() {
         }
         box.addView(hib)
 
+        val save = Ui.card(this)
+        save.addView(Ui.h(this, "Your save"))
+        save.addView(Ui.body(this, "The game lives on this phone and in your Android backup. To move it by hand, copy it here and paste it on the other phone."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
+        save.addView(Ui.button(this, "Copy save to clipboard", Ui.LIGHT) {
+            val cm = getSystemService(ClipboardManager::class.java)
+            cm.setPrimaryClip(ClipData.newPlainText("Ship Monster save", GameStore.export(this)))
+            toast("Copied. Paste it somewhere safe.")
+        })
+        save.addView(Ui.button(this, "Paste save from clipboard", Ui.LIGHT) {
+            val text = getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString() ?: ""
+            AlertDialog.Builder(this)
+                .setTitle("Replace this game?")
+                .setMessage("The game on this phone will be replaced by the save on the clipboard.")
+                .setPositiveButton("Replace") { _, _ ->
+                    if (GameStore.import(this, text)) {
+                        Prefs.setOnboarded(this, true)
+                        changed("Save loaded.")
+                    } else {
+                        toast("The clipboard does not hold a Ship Monster save.")
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
+        box.addView(save)
+
+        if (!BuildConfig.DEBUG) {
+            // the test lab is for debug builds only
+            (findViewById<View>(R.id.tv_test_state).parent as View).visibility = View.GONE
+            box.addView(Ui.space(this, 12))
+            return
+        }
         val lab = Ui.card(this)
         lab.addView(Ui.h(this, "More test lab"))
+        lab.addView(Ui.button(this, "No rest days, starting now", Ui.LIGHT) {
+            GameStore.edit(this) { game, _ -> game.restDays.clear(); game.restPrev.clear() }
+            changed("Rest days cleared.")
+        })
         lab.addView(Ui.button(this, "Add 5 gems", Ui.LIGHT) {
             GameStore.edit(this) { game, _ -> game.gems += 5 }
             changed("Added 5 gems.")

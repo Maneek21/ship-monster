@@ -117,8 +117,8 @@ class LockService : Service() {
             return
         }
         val now = GameStore.now(this)
-        val s = GameStore.load(this)
-        val st = Engine.lockActive(s, now)
+        val s = GameStore.recent(this, 20_000)
+        val st = Engine.lockActive(s, now, GameStore.tz(now))
         if (st != lastStatus) {
             val firstLook = lastStatus == null
             lastStatus = st
@@ -235,10 +235,10 @@ class LockService : Service() {
             v.findViewById<ImageView>(R.id.lock_pet)
                 .setImageBitmap(Art.big(this, lead.species, lead.stage, Art.FERAL, 400))
         }
-        val said = GameStore.lines(this).say("lock", lead, s, pkg.hashCode().toLong() + s.lastShipAt / 60_000, app)
+        val said = GameStore.lines(this).say("lock", lead, s, pkg.hashCode().toLong() + System.currentTimeMillis() / (5 * 60_000L), app)
         v.findViewById<TextView>(R.id.lock_text).text =
             "${lead?.name ?: "The horde"}: \"$said\"\n\nNo ship in ${Fmt.hours((s.idleMs / Rules.H).toInt())}. Push a commit or merge a pull request and the lock lifts."
-        v.findViewById<TextView>(R.id.lock_count).text = "The horde falls in ${Fmt.hours(Engine.hoursToNext(s))}"
+        v.findViewById<TextView>(R.id.lock_count).text = "The horde falls ${Fmt.due(this, Engine.deadline(s, GameStore.tz(now)))}"
         val noteView = v.findViewById<TextView>(R.id.lock_note)
         noteView.text = if (checking) "Checking GitHub..." else (note ?: "")
         val truce = v.findViewById<Button>(R.id.lock_truce)
@@ -248,7 +248,7 @@ class LockService : Service() {
         val armed = System.currentTimeMillis() < mercyArmedUntil
         v.findViewById<Button>(R.id.lock_mercy).text = if (armed) "Tap again. The horde will fall." else "Surrender"
         v.findViewById<TextView>(R.id.lock_fine).text =
-            "Surrender opens $app now. Commons in your party leave for good and the rest turn to stone."
+            "Surrender opens $app now. Everyone in your party turns to stone and loses half their growth."
     }
 
     private fun hideOverlay() {
@@ -322,6 +322,8 @@ class LockService : Service() {
     private fun truce() {
         val ok = GameStore.edit(this) { g, now -> Engine.truce(g, now) }
         if (ok) {
+            val g = GameStore.recent(this, 5_000)
+            android.widget.Toast.makeText(this, "${g.lead?.name ?: "The horde"}: \"${GameStore.lines(this).say("truce", g.lead, g, System.currentTimeMillis() / 1000)}\"", android.widget.Toast.LENGTH_LONG).show()
             hideOverlay()
             PetRuntime.refresh(this)
         }

@@ -27,6 +27,20 @@ class SyncJobService : JobService() {
     override fun onStopJob(params: JobParameters): Boolean = false
 
     companion object {
+        private const val JOB_ONCE = 8
+
+        /** One extra sync as soon as there is a network, for when the game is waiting on one. */
+        fun soon(c: Context) {
+            val js = c.getSystemService(JobScheduler::class.java) ?: return
+            if (js.getPendingJob(JOB_ONCE) != null) return
+            val job = JobInfo.Builder(JOB_ONCE, ComponentName(c, SyncJobService::class.java))
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setMinimumLatency(2_000)
+                .setOverrideDeadline(10 * 60_000L)
+                .build()
+            js.schedule(job)
+        }
+
         private const val JOB_ID = 7
 
         fun schedule(c: Context) {
