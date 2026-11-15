@@ -118,6 +118,11 @@ class SyncLogicTest {
         assertNotNull(summary.hatched)
         assertEquals(1, summary.gems)
         assertEquals(1, g.party.size)
+        // a month of merges still starts with a small purse
+        val rich = Game.fresh(now)
+        Engine.pickStarter(rich, "mossback")
+        SyncLogic.apply(rich, (1..20).map { ShipEvent(now - 40 * h + it * h, true, "a/b") }, 0, backdate = true)
+        assertEquals(3, rich.gems)
         assertEquals("Found your recent work. Mossback hatched with a ${g.streak}-day streak.", SyncLogic.message(summary, g, true))
     }
 

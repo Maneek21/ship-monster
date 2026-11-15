@@ -55,7 +55,7 @@ class PetWidget : AppWidgetProvider() {
                 val hour = Rules.localHour(now, tz)
                 val asleep = Engine.hibernating(g, now) || hour >= 23 || hour < 5
                 views.setImageViewBitmap(R.id.pet_image,
-                    Art.scaled(Art.frame(context, lead.species, lead.stage, Art.variantFor(g, lead, asleep)), 6))
+                    Art.big(context, lead.species, lead.stage, Art.variantFor(g, lead, asleep), 240))
                 views.setTextViewText(R.id.pet_name, lead.title)
                 views.setTextViewText(R.id.pet_say, "\"" + GameStore.lines(context).idle(g, now, tz) + "\"")
                 views.setProgressBar(R.id.pet_belly, 100, lead.belly.toInt(), false)

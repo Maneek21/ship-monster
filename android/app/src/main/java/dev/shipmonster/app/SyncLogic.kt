@@ -156,6 +156,9 @@ object SyncLogic {
                 else -> {}
             }
         }
+        // A first sync replays up to a month of work. Keep the growth and the streak, but start
+        // everyone with a small purse: at least one gem for a first egg, at most three.
+        if (backdate) g.gems = g.gems.coerceIn(1, 3)
         return ApplySummary(fed, merges, hatched, calmed, evolved, g.gems - gemsBefore, all)
     }
 

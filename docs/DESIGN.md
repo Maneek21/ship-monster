@@ -60,7 +60,7 @@ A new horde should start with your real streak and should never arrive already f
 | Android only lets a foreground service start while the app is visible or at boot. On Android 15 the old exception for apps with the overlay permission now needs an overlay already on screen (checked) | The guard service runs for as long as the lock is switched on, not only while the pet is a monster |
 | A service that polls all day would drain the battery | It idles until the horde goes feral, then checks which app is in front once a second, and stops checking while the screen is off |
 | The Accessibility API is restricted on Google Play | The lock uses usage access plus an overlay window instead |
-| No blocker on Android is unbreakable, because the user can revoke its permissions | The exit is offered openly as surrender, and it costs the horde's life |
+| No blocker on Android is unbreakable, because the user can revoke its permissions | The exit is offered openly as surrender, and it costs the party |
 | A lock that outlives your commit is unacceptable | While the horde is feral the service syncs every 5 minutes, and the lock screen has an "I shipped. Check now" button |
 
 What the lock reads: the package name of the app in front. Nothing inside any app.

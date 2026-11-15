@@ -33,16 +33,16 @@ object ShareCard {
     /** A card for one monster, or for a hall of fame entry when [hall] is given. */
     fun cardFor(c: Context, g: Game, m: Monster?, hall: String?): Card {
         if (hall != null || m == null) {
-            val stone = Art.scaled(Art.frame(c, "gravelkin", 5, Art.STONE), 12)
+            val stone = Art.big(c, "gravelkin", 5, Art.STONE, 384)
             return Card("Hall of fame", hall ?: "Nothing here yet.", stone, true)
         }
         val feral = Engine.mood(g) == Mood.FERAL && m.id in g.party
-        val sprite = Art.scaled(Art.frame(c, m.species, m.stage, Art.variantFor(g, m, false)), 12)
+        val sprite = Art.big(c, m.species, m.stage, Art.variantFor(g, m, false), 384)
         val stars = if (m.stars > 0) " ${m.stars}-star ${m.sp.rarity.label.lowercase()}." else " ${m.sp.rarity.label}."
         return when {
             m.stone -> Card("${m.name} turned to stone", "My horde fell because I stopped shipping. A gem brings it back.", sprite, true)
             feral -> Card("${m.name} went feral", "No ship in ${Fmt.hours((g.idleMs / Rules.H).toInt())}. My apps are locked until I push.", sprite, true)
-            else -> Card(m.title, "${g.streak}-day shipping streak.$stars Raised on ${g.pushes} pushes and ${g.merges} merged pull requests.", sprite, false)
+            else -> Card(m.title, (if (g.streak > 0) "${g.streak}-day shipping streak." else "").plus(stars).trim() + " Raised on ${g.pushes} pushes and ${g.merges} merged pull requests.", sprite, false)
         }
     }
 

@@ -301,9 +301,13 @@ def main():
     seek_tap("start", text="Start with Puddlewump")
 
     # 2. First sync with a real username, no token
-    status = wait_for(lambda: (lambda n: n["text"] if n and "Checking" not in n["text"] else None)(find(dump(), desc="sync status")), 45)
+    wait_for(lambda: "Puddlewump" in (desc_of("den ") or ""), 45)
+    n = seek(desc="sync status")
+    status = n["text"] if n else None
     note("first sync message", status)
     check("first sync with a username reaches GitHub", bool(status) and "Could not" not in status and "GitHub answered" not in status, status)
+    scroll(False)
+    scroll(False)
     check("onboarding ends on the den", find(dump(), desc_starts="den ") is not None)
     shot("06_den_after_first_sync")
     note("den after first sync", desc_of("den "))
@@ -331,7 +335,7 @@ def main():
     party = desc_of("den ")
     check("the starter hatched and leads the party", party is not None and "Puddlewump" in party, party)
     check("pushes filled the pantry", num("chow ") >= 20, num("chow "))
-    check("merged pull requests paid gems", num("gems ") >= 7, num("gems "))
+    check("merged pull requests paid gems", num("gems ") >= 8, num("gems "))
     stage = desc_of("monster ")
     check("growth evolved the monster", stage is not None and int(stage.split("stage")[-1]) >= 3, stage)
     before = (find(dump(), desc="speech") or {}).get("text")

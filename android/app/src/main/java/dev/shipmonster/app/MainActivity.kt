@@ -310,20 +310,20 @@ class MainActivity : Activity() {
         page.addView(card)
         when (step) {
             0 -> {
-                card.addView(Ui.sprite(this, Art.frame(this, "mossback", 4, Art.HAPPY), 150))
+                card.addView(Ui.sprite(this, Art.portrait(this, "mossback", 5, Art.HAPPY, grow = false), 150))
                 card.addView(Ui.h(this, "Your monsters eat shipped code").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
                 card.addView(Ui.body(this, "Every push to GitHub is chow for the pantry. Every merged pull request is a gem. You do not log anything. Just ship.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             1 -> {
                 val r = Ui.row(this)
                 r.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-                for ((s, size) in listOf(1 to 40, 3 to 56, 5 to 76, 8 to 104)) r.addView(Ui.sprite(this, Art.frame(this, "cindermite", s, Art.IDLE), size))
+                for ((s, size) in listOf(1 to 30, 3 to 52, 5 to 76, 8 to 108)) r.addView(Ui.sprite(this, Art.portrait(this, "cindermite", s, Art.IDLE, grow = false), size))
                 card.addView(r)
                 card.addView(Ui.h(this, "Feed them and they grow").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
                 card.addView(Ui.body(this, "Eight sizes, from Speck to Titan. Twelve species to hatch, each with its own voice and favourite flavour. Gems buy eggs and feasts.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
             2 -> {
-                card.addView(Ui.sprite(this, Art.frame(this, "gloomfang", 5, Art.FERAL), 150))
+                card.addView(Ui.sprite(this, Art.portrait(this, "gloomfang", 5, Art.FERAL, grow = false), 150))
                 card.addView(Ui.h(this, "Stop shipping and they go feral").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
                 card.addView(Ui.body(this, "After 48 hours with no ship the horde goes feral. Your streak resets, everyone shrinks a size, and the horde can lock the apps you choose until you push. 72 hours later it falls.\n\nSaturday and Sunday are rest days. You can change that in Setup.").apply { gravity = Gravity.CENTER }, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 6)))
             }
@@ -384,7 +384,7 @@ class MainActivity : Activity() {
             tile.setBackgroundResource(if (on) R.drawable.tile_on else R.drawable.tile)
             tile.setPadding(Ui.dp(this, 10), Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 8))
             tile.contentDescription = "starter ${sp.name}" + (if (on) " selected" else "")
-            tile.addView(Ui.sprite(this, Art.frame(this, id, 3, if (on) Art.HAPPY else Art.IDLE), 64))
+            tile.addView(Ui.sprite(this, Art.portrait(this, id, 3, if (on) Art.HAPPY else Art.IDLE, grow = false), 64))
             val c = Ui.col(this)
             c.addView(Ui.text(this, sp.name, 15f, bold = true, mono = true))
             c.addView(Ui.text(this, "${voiceWord(sp)}. Loves ${sp.fav.label} chow.", 13f, R.color.ink_soft))
@@ -405,7 +405,7 @@ class MainActivity : Activity() {
         val mood = Engine.mood(g)
 
         den.set(g, now, tz)
-        page.addView(den, Ui.lp(Ui.MATCH, Ui.dp(this, 230), top = Ui.dp(this, 12)))
+        page.addView(den, Ui.lp(Ui.MATCH, Ui.dp(this, 250), top = Ui.dp(this, 12)))
 
         val lead = g.lead
         val bubbleText = if (said != null && System.currentTimeMillis() < saidUntil) said!! else GameStore.lines(this).idle(g, now, tz)
@@ -476,7 +476,7 @@ class MainActivity : Activity() {
                     t.gravity = Gravity.CENTER
                     t.setBackgroundResource(if (p.id == m.id) R.drawable.tile_on else R.drawable.tile)
                     t.setPadding(Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4), Ui.dp(this, 4))
-                    t.addView(Ui.sprite(this, Art.frame(this, p.species, p.stage, Art.variantFor(g, p, false)), 40))
+                    t.addView(Ui.sprite(this, Art.portrait(this, p.species, p.stage, Art.variantFor(g, p, false)), 40))
                     t.contentDescription = "party ${p.name}"
                     t.setOnClickListener { focusId = p.id; render() }
                     strip.addView(t, Ui.lp(0, Ui.WRAP, 1f, start = if (strip.childCount > 0) Ui.dp(this, 6) else 0))
@@ -486,15 +486,15 @@ class MainActivity : Activity() {
             monsterBars(card, g, m)
             val buttons = Ui.row(this)
             val left = Rules.TREATS_PER_DAY - m.treats
-            buttons.addView(Ui.button(this, "Treat ($left left)", Ui.PRIMARY) { treat(m.id) }.apply { contentDescription = "treat" }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10)))
+            buttons.addView(Ui.button(this, "Treat ($left left)", Ui.PRIMARY) { treat(m.id) }.apply { contentDescription = "treat" }, Ui.lp(0, Ui.WRAP, 1f))
             if (m.id != lead.id) {
                 buttons.addView(Ui.button(this, "Make lead", Ui.LIGHT) {
                     GameStore.edit(this) { game, _ -> Engine.makeLead(game, m.id) }
                     PetRuntime.refresh(this)
                     render()
-                }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10), start = Ui.dp(this, 8)))
+                }, Ui.lp(0, Ui.WRAP, 1f, start = Ui.dp(this, 8)))
             }
-            card.addView(buttons)
+            card.addView(buttons, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
             page.addView(card)
         }
 
@@ -517,9 +517,9 @@ class MainActivity : Activity() {
         val nowFlavor = Rules.flavorAt(Rules.localHour(now, tz))
         pantry.addView(Ui.text(this, "A push right now makes ${nowFlavor.label} chow. Monsters graze on their own.", 12f, R.color.ink_soft), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
         val row = Ui.row(this)
-        row.addView(Ui.button(this, if (syncing) "Checking..." else "Sync now", Ui.LIGHT) { sync(true) }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10)))
-        if (lead != null) row.addView(Ui.button(this, "Feast (${Rules.FEAST_COST} gems)", Ui.LIGHT) { feast() }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10), start = Ui.dp(this, 8)))
-        pantry.addView(row)
+        row.addView(Ui.button(this, if (syncing) "Checking..." else "Sync now", Ui.LIGHT) { sync(true) }, Ui.lp(0, Ui.WRAP, 1f))
+        if (lead != null) row.addView(Ui.button(this, "Feast (${Rules.FEAST_COST} gems)", Ui.LIGHT) { feast() }, Ui.lp(0, Ui.WRAP, 1f, start = Ui.dp(this, 8)))
+        pantry.addView(row, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
         val msg = Prefs.lastSyncMessage(this)
         if (msg.isNotEmpty()) {
             val t = Ui.text(this, "$msg (${Fmt.ago(System.currentTimeMillis() - Prefs.lastSyncAt(this))})", 12f, if (Prefs.lastSyncOk(this)) R.color.ink_soft else R.color.bad)
@@ -642,7 +642,7 @@ class MainActivity : Activity() {
             val ordered = g.partyMonsters() + g.den() + g.statues()
             val tiles = ordered.map { m ->
                 val badge = when { m.stone -> "STONE"; g.party.firstOrNull() == m.id -> "LEAD"; m.id in g.party -> "PARTY"; else -> "DEN" }
-                tile(Ui.sprite(this, Art.frame(this, m.species, m.stage, Art.variantFor(g, m, false)), 72), m.name,
+                tile(Ui.sprite(this, Art.portrait(this, m.species, m.stage, Art.variantFor(g, m, false)), 72), m.name,
                     (m.stageName + " " + stars(m.stars)).trim(), badge, m.id in g.party).apply {
                     contentDescription = "open ${m.name}"
                     setOnClickListener { detailId = m.id; scrolls[1] = 0; render() }
@@ -657,7 +657,7 @@ class MainActivity : Activity() {
         dex.addView(Ui.body(this, "Eggs from the Nest fill this in."), Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 4)))
         val tiles = Dex.all.map { sp ->
             val seen = sp.id in g.seen
-            val frame = Art.frame(this, sp.id, 4, Art.IDLE)
+            val frame = Art.portrait(this, sp.id, 5, Art.IDLE, grow = false)
             val img = Ui.sprite(this, if (seen) frame else Art.silhouette(frame, getColor(R.color.ink)), 64)
             tile(img, if (seen) sp.name else "???", sp.rarity.label, "", false).apply {
                 contentDescription = "dex " + (if (seen) sp.name else "unknown ${sp.rarity.label}")
@@ -681,7 +681,7 @@ class MainActivity : Activity() {
         page.addView(Ui.button(this, "Back to the horde", Ui.OUTLINE) { detailId = -1; render() }.apply { layoutParams = Ui.lp(Ui.WRAP, Ui.WRAP) })
         val card = Ui.card(this)
         card.gravity = Gravity.CENTER_HORIZONTAL
-        card.addView(Ui.sprite(this, Art.frame(this, m.species, m.stage, Art.variantFor(g, m, false)), 170))
+        card.addView(Ui.sprite(this, Art.portrait(this, m.species, m.stage, Art.variantFor(g, m, false)), 170))
         val inner = Ui.col(this)
         monsterBars(inner, g, m)
         card.addView(inner, Ui.lp(Ui.MATCH, Ui.WRAP))
@@ -701,11 +701,11 @@ class MainActivity : Activity() {
         strip.gravity = Gravity.BOTTOM
         val reached = maxOf(m.peak, m.stage)
         for (s in 1..8) {
-            val f = Art.frame(this, m.species, s, Art.IDLE)
+            val f = Art.portrait(this, m.species, s, Art.IDLE)
             val cell = Ui.col(this)
             cell.gravity = Gravity.CENTER_HORIZONTAL
             cell.addView(Ui.sprite(this, if (s <= reached) f else Art.silhouette(f, getColor(R.color.ink)), 36))
-            cell.addView(Ui.text(this, "$s", 10f, if (s == m.stage) R.color.monster else R.color.ink_soft, bold = s == m.stage, mono = true))
+            cell.addView(Ui.text(this, "$s", 10f, if (s == m.stage) R.color.monster else R.color.ink_soft, bold = s == m.stage, mono = true).apply { gravity = Gravity.CENTER })
             strip.addView(cell, Ui.lp(0, Ui.WRAP, 1f))
         }
         evo.addView(strip, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 8)))
@@ -762,7 +762,7 @@ class MainActivity : Activity() {
             c.setBackgroundResource(R.drawable.tile_on)
             c.setPadding(Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14), Ui.dp(this, 14))
             val m = r.monster
-            c.addView(Ui.sprite(this, Art.frame(this, m.species, m.stage, Art.HAPPY), 140))
+            c.addView(Ui.sprite(this, Art.portrait(this, m.species, m.stage, Art.HAPPY), 140))
             val title = when {
                 r.isNew -> "New: ${m.sp.name}"
                 r.star -> "Another ${m.sp.name}"

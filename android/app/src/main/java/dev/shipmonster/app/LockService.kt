@@ -201,6 +201,9 @@ class LockService : Service() {
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             )
+            // Cover the status and navigation bars too, so nothing of the locked app shows through.
+            if (Build.VERSION.SDK_INT >= 30) lp.fitInsetsTypes = 0
+            if (Build.VERSION.SDK_INT >= 28) lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             v.findViewById<Button>(R.id.lock_home).setOnClickListener { goHome() }
             v.findViewById<Button>(R.id.lock_check).setOnClickListener { checkNow(silent = false) }
             v.findViewById<Button>(R.id.lock_truce).setOnClickListener { truce() }
@@ -230,7 +233,7 @@ class LockService : Service() {
         val app = LockAccess.labelOf(this, pkg)
         if (lead != null) {
             v.findViewById<ImageView>(R.id.lock_pet)
-                .setImageBitmap(Art.scaled(Art.frame(this, lead.species, lead.stage, Art.FERAL), 8))
+                .setImageBitmap(Art.big(this, lead.species, lead.stage, Art.FERAL, 400))
         }
         val said = GameStore.lines(this).say("lock", lead, s, pkg.hashCode().toLong() + s.lastShipAt / 60_000, app)
         v.findViewById<TextView>(R.id.lock_text).text =
@@ -240,7 +243,7 @@ class LockService : Service() {
         noteView.text = if (checking) "Checking GitHub..." else (note ?: "")
         val truce = v.findViewById<Button>(R.id.lock_truce)
         truce.visibility = if (s.truceUsed) View.GONE else View.VISIBLE
-        truce.text = if (s.gems > 0) "Truce: 12 hours for 1 gem (you have ${s.gems})" else "Truce costs 1 gem. You have none."
+        truce.text = if (s.gems > 0) "Truce: 12 hours for 1 gem" else "A truce costs 1 gem. You have none."
         truce.isEnabled = s.gems > 0
         val armed = System.currentTimeMillis() < mercyArmedUntil
         v.findViewById<Button>(R.id.lock_mercy).text = if (armed) "Tap again. The horde will fall." else "Surrender"

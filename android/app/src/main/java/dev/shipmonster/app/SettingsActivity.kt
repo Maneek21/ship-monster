@@ -314,9 +314,9 @@ class SettingsActivity : Activity() {
                     if (!ok) toast("Not available right now. It needs a calm horde and ${Rules.HIBERNATE_COOLDOWN_DAYS} days since the last time.")
                     PetRuntime.refresh(this)
                     renderExtra()
-                }, Ui.lp(0, Ui.WRAP, 1f, top = Ui.dp(this, 10), start = if (i > 0) Ui.dp(this, 8) else 0))
+                }, Ui.lp(0, Ui.WRAP, 1f, start = if (i > 0) Ui.dp(this, 8) else 0))
             }
-            hib.addView(r)
+            hib.addView(r, Ui.lp(Ui.MATCH, Ui.WRAP, top = Ui.dp(this, 10)))
         }
         box.addView(hib)
 

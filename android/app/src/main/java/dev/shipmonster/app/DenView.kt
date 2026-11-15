@@ -111,7 +111,7 @@ class DenView(c: Context) : View(c) {
         if (party.isEmpty()) {
             val egg = g.starter
             if (egg != null) {
-                val px = maxOf(2, (h * 0.5f / Art.CELL).toInt())
+                val px = maxOf(2, (h * 0.62f / Art.CELL).toInt())
                 val size = Art.CELL * px
                 val wobble = (sin(real / 260.0) * px * (if (real / 2600 % 2 == 0L) 1.5 else 0.0)).toInt()
                 dst.set(w / 2 - size / 2 + wobble, groundY - size + px * 4, w / 2 + size / 2 + wobble, groundY + px * 4)
@@ -121,18 +121,19 @@ class DenView(c: Context) : View(c) {
             val n = party.size
             // lead in the middle, the rest fanned out behind it
             val order = when (n) { 1 -> intArrayOf(0); 2 -> intArrayOf(1, 0); 3 -> intArrayOf(1, 0, 2); 4 -> intArrayOf(3, 1, 0, 2); else -> intArrayOf(3, 1, 0, 2, 4) }
-            val slotW = w / (n + 0.4f)
+            val slotW = w / (n + 0.2f)
             val draws = ArrayList<Triple<Int, Int, Int>>()   // party index, centre x, base y
             for ((slot, idx) in order.withIndex()) {
                 val cx = (w / 2f + (slot - (n - 1) / 2f) * slotW).toInt()
                 val back = if (idx == 0) 0 else (h * 0.06f).toInt()
-                draws.add(Triple(idx, cx, groundY + (h * 0.12f).toInt() - back))
+                draws.add(Triple(idx, cx, groundY + (h * 0.11f).toInt() - back))
             }
             for ((idx, cx, baseY) in draws.sortedBy { it.third }) {
                 val m = party[idx]
                 val lead = idx == 0
-                val basePx = h * (if (lead) 0.62f else 0.46f) / Art.CELL * (0.62f + 0.38f * m.stage / 8f)
-                val px = maxOf(2, minOf(basePx.toInt(), (slotW * 1.25f / Art.CELL).toInt()))
+                // one pixel size for the lead and a smaller one for the rest; the sprites already grow inside their cell
+                val leadPx = minOf(h * 0.84f / Art.CELL, w * 0.6f / Art.CELL)
+                val px = maxOf(2, (if (lead) leadPx else leadPx * 0.68f).toInt())
                 val size = Art.CELL * px
                 val phase = m.id * 0.9
                 val happy = real < joyUntil && (joyId == -1 || joyId == m.id)

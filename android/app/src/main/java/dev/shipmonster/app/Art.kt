@@ -70,6 +70,38 @@ object Art {
         else -> IDLE
     }
 
+    private val portraits = HashMap<String, Bitmap>()
+
+    /**
+     * A frame cropped to the monster and set on a square canvas, bottom centre. With [grow] the
+     * monster fills more of the square the bigger its stage, so a Speck still looks small next to a Titan.
+     */
+    fun portrait(c: Context, species: String, stage: Int, variant: Int, grow: Boolean = true): Bitmap {
+        val key = "$species/$stage/$variant/$grow"
+        portraits[key]?.let { return it }
+        val f = frame(c, species, stage, variant)
+        var l = CELL; var t = CELL; var r = -1; var b = -1
+        for (y in 0 until CELL) for (x in 0 until CELL) if ((f.getPixel(x, y) ushr 24) != 0) {
+            if (x < l) l = x; if (x > r) r = x; if (y < t) t = y; if (y > b) b = y
+        }
+        if (r < 0) return f
+        val w = r - l + 1
+        val h = b - t + 1
+        val fill = if (grow) 0.5f + 0.5f * stage / 8f else 1f
+        val side = maxOf(4, Math.ceil((maxOf(w, h) / fill).toDouble()).toInt())
+        val out = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(f, android.graphics.Rect(l, t, r + 1, b + 1),
+            android.graphics.Rect((side - w) / 2, side - h, (side - w) / 2 + w, side), Paint().apply { isFilterBitmap = false })
+        portraits[key] = out
+        return out
+    }
+
+    /** A portrait blown up with hard pixel edges to roughly [px] wide, for widgets and share images. */
+    fun big(c: Context, species: String, stage: Int, variant: Int, px: Int): Bitmap {
+        val p = portrait(c, species, stage, variant)
+        return scaled(p, maxOf(1, px / p.width))
+    }
+
     fun scaled(b: Bitmap, scale: Int): Bitmap = Bitmap.createScaledBitmap(b, b.width * scale, b.height * scale, false)
 
     /** A solid-colour cut-out, for monsters not met yet. */
