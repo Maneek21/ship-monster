@@ -79,6 +79,7 @@ def dump():
                 continue
             nodes.append({
                 "text": n.get("text", ""),
+                "desc": n.get("content-desc", ""),
                 "id": n.get("resource-id", "").split("/")[-1],
                 "cls": n.get("class", ""),
                 "checked": n.get("checked") == "true",
@@ -89,8 +90,12 @@ def dump():
     return []
 
 
-def find(nodes, id=None, text=None, contains=None, cls=None):
+def find(nodes, id=None, text=None, contains=None, cls=None, desc=None, desc_starts=None):
     for n in nodes:
+        if desc is not None and n["desc"].lower() != desc.lower():
+            continue
+        if desc_starts is not None and not n["desc"].lower().startswith(desc_starts.lower()):
+            continue
         if id is not None and n["id"] != id:
             continue
         if text is not None and n["text"].lower() != text.lower():
@@ -156,9 +161,31 @@ def seek_tap(name, **kw):
     return True
 
 
+def desc_of(prefix):
+    """The rest of a content description that starts with prefix, or None."""
+    n = find(dump(), desc_starts=prefix)
+    return n["desc"][len(prefix):].strip() if n else None
+
+
 def state_is(word):
-    """The state pill is shown in capitals, so compare without case."""
-    return (text_of("main_state") or "").lower() == word.lower()
+    return (desc_of("state ") or "").lower() == word.lower()
+
+
+def tab(name):
+    n = find(dump(), desc="tab " + name)
+    if n:
+        tap(n)
+    return n is not None
+
+
+def num(prefix):
+    v = desc_of(prefix)
+    if v is None:
+        # the header chips sit at the top of every tab
+        scroll(False)
+        scroll(False)
+        v = desc_of(prefix)
+    return int(v) if v and v.lstrip("-").isdigit() else -1
 
 
 def text_of(id, wait=0):
@@ -196,16 +223,22 @@ def app_log():
     return adb("logcat", "-d", "-s", "ShipMonster:V")
 
 
-def pet_prefs():
-    raw = prefs("pet")
+def game_prefs():
+    raw = prefs("game")
     m = re.search(r'name="state">(.*?)</string>', raw, re.S)
-    return (m.group(1).replace("&quot;", '"') if m else raw)[:700]
+    return (m.group(1).replace("&quot;", '"') if m else raw)
 
 
 def open_settings():
     home()
-    seek_tap("settings button", id="btn_settings")
+    tab("Setup")
     time.sleep(1.5)
+
+
+def lab(id, times=1):
+    """Press a test lab button on the setup screen."""
+    for _ in range(times):
+        seek_tap(id, id=id)
 
 
 def prefs(name):
@@ -237,51 +270,134 @@ def main():
     check("install", "Success" in out, out.strip()[-80:])
     sh(f"pm grant {PKG} android.permission.POST_NOTIFICATIONS")
 
-    # 1. First launch
+    # 1. Onboarding
     home()
-    nodes = dump()
-    check("app opens on the home screen", find(nodes, id="main_name") is not None)
-    check("new pet is an egg", "still an egg" in (text_of("main_name") or ""), text_of("main_name"))
-    check("setup list offers Connect GitHub", find(nodes, text="Connect GitHub") is not None)
-    shot("01_home_egg")
-
-    # 2. Setup screen and real GitHub sync with a username only
-    open_settings()
-    check("setup screen opens", find(dump(), id="et_username") is not None)
-    shot("02_setup_top")
-    if seek_tap("username field", id="et_username"):
+    check("first launch opens onboarding", find(dump(), contains="Step 1 of 5") is not None)
+    shot("01_onboarding_1")
+    seek_tap("next", text="Next")
+    shot("02_onboarding_2")
+    seek_tap("next", text="Next")
+    shot("03_onboarding_3")
+    seek_tap("next", text="Next")
+    field = find(dump(), cls="android.widget.EditText")
+    check("onboarding asks for a GitHub username", field is not None)
+    if field:
+        tap(field)
+        sh("input text bad..name")
+        hide_keyboard()
+        seek_tap("continue", text="Continue")
+        check("a bad username is refused", find(dump(), contains="Step 4 of 5") is not None)
+        field = find(dump(), cls="android.widget.EditText")
+        tap(field)
+        sh("input keyevent --longpress " + " ".join(["67"] * 20))
         sh(f"input text {GITHUB_USER}")
-        time.sleep(0.5)
-    seek_tap("save and sync", id="btn_save_github")
-    time.sleep(1)
-    check("keyboard is put away after saving", "mInputShown=true" not in sh("dumpsys input_method"))
-    hide_keyboard()
-    state = wait_for(lambda: (lambda t: t if t and "Checking" not in t else None)(text_of("tv_github_state")), 40)
-    check("username saved", state is not None and GITHUB_USER in (state or ""), state)
-    home()
-    sync_msg = text_of("main_message", wait=5)
-    note("first sync message (no token)", sync_msg)
-    note("app log after first sync", app_log().strip().splitlines()[-4:])
-    note("pet state after first sync", pet_prefs())
-    note("pet after first sync", f"{text_of('main_name')} / {text_of('main_state')} / {text_of('main_meta')}")
-    check("first sync returned a real answer", bool(sync_msg) and "unexpected" not in (sync_msg or "").lower(), sync_msg)
-    shot("03_home_after_sync")
+        hide_keyboard()
+        shot("04_onboarding_username")
+        seek_tap("continue", text="Continue")
+    check("username step leads to the starter choice", find(dump(), contains="Step 5 of 5") is not None)
+    seek_tap("starter", desc="starter Puddlewump")
+    check("a starter can be selected", find(dump(), desc="starter Puddlewump selected") is not None)
+    shot("05_onboarding_starter")
+    seek_tap("start", text="Start with Puddlewump")
 
-    # 3. Make sure there is a living pet, using the test lab if sync did not hatch it
-    if "egg" in (text_of("main_name") or ""):
-        open_settings()
-        seek_tap("fake commit", id="btn_commit")
-        home()
-    check("pet is alive and happy", (text_of("main_state") or "").lower().startswith(("happy", "sick")), text_of("main_state"))
-    tap(find(dump(), id="main_pet") or {"b": [0, 0, 2, 2]})
-    shot("04_home_happy")
+    # 2. First sync with a real username, no token
+    status = wait_for(lambda: (lambda n: n["text"] if n and "Checking" not in n["text"] else None)(find(dump(), desc="sync status")), 45)
+    note("first sync message", status)
+    check("first sync with a username reaches GitHub", bool(status) and "Could not" not in status and "GitHub answered" not in status, status)
+    check("onboarding ends on the den", find(dump(), desc_starts="den ") is not None)
+    shot("06_den_after_first_sync")
+    note("den after first sync", desc_of("den "))
 
     # From here on the phone is offline. That keeps real pushes made during the run from feeding
-    # the pet mid-test, and proves the lock does not depend on the network.
+    # the horde mid-test, and proves the lock does not depend on the network.
     sh("cmd connectivity airplane-mode enable")
     time.sleep(2)
 
-    # 4. Arm the lock
+    # 3. Setup: no rest days during the test, so skipped days always count
+    open_settings()
+    for d in ("Su", "Sa"):
+        n = seek(desc=f"rest {d} on")
+        if n:
+            tap(n)
+    check("rest days can be switched off", seek(desc="rest Su off") is not None and find(dump(), desc="rest Sa off") is not None)
+    shot("07_setup_rest_days")
+
+    # 4. Feed the horde with the test lab
+    lab("btn_commit", 3)
+    lab("btn_merge", 2)
+    seek_tap("add gems", text="Add 5 gems")
+    seek_tap("add growth", text="Add 100 growth to the party")
+    home()
+    party = desc_of("den ")
+    check("the starter hatched and leads the party", party is not None and "Puddlewump" in party, party)
+    check("pushes filled the pantry", num("chow ") >= 20, num("chow "))
+    check("merged pull requests paid gems", num("gems ") >= 7, num("gems "))
+    stage = desc_of("monster ")
+    check("growth evolved the monster", stage is not None and int(stage.split("stage")[-1]) >= 3, stage)
+    before = (find(dump(), desc="speech") or {}).get("text")
+    den = find(dump(), desc_starts="den ")
+    if den:
+        tap(den)
+    after = (find(dump(), desc="speech") or {}).get("text")
+    check("poking the monster makes it speak", bool(after) and after != before, f"{before!r} -> {after!r}")
+    shot("08_den_poked")
+    chow = num("chow ")
+    seek_tap("treat", desc="treat")
+    check("a treat costs two chow", num("chow ") == chow - 2, num("chow "))
+    check("three treats a day", seek(contains="Treat (2 left)") is not None)
+
+    # 5. Nest: buy and crack eggs
+    tab("Nest")
+    gems = num("gems ")
+    seek_tap("buy egg", contains="Buy an egg")
+    check("an egg costs a gem", num("gems ") == gems - 1, num("gems "))
+    egg = seek(desc="egg 0")
+    check("the egg waits in the nest", egg is not None)
+    shot("09_nest_egg")
+    for _ in range(3):
+        egg = seek(desc="egg 0")
+        if egg:
+            tap(egg)
+    hatched = wait_for(lambda: desc_of("hatched "), 5)
+    check("three taps crack the egg", hatched is not None, hatched)
+    shot("10_nest_hatched")
+    for _ in range(3):
+        seek_tap("buy egg", contains="Buy an egg")
+        for _ in range(3):
+            egg = seek(desc="egg 0")
+            if egg:
+                tap(egg)
+    gems = num("gems ")
+    seek_tap("feast", contains="Throw a feast")
+    check("a feast costs two gems", num("gems ") == gems - 2, num("gems "))
+    seek(contains="What is in an egg")
+    shot("11_nest_odds")
+
+    # 6. Horde and a monster's page
+    tab("Horde")
+    title = find(dump(), contains="Your monsters")
+    count = int(re.findall(r"\d+", title["text"])[0]) if title else 0
+    check("hatched monsters are in the horde", count >= 2, title["text"] if title else None)
+    shot("12_horde")
+    seek(contains="Monsterdex")
+    scroll(True)
+    shot("13_monsterdex")
+    scroll(False)
+    scroll(False)
+    opened = seek_tap("monster tile", desc_starts="open ")
+    check("a monster page opens", opened and seek(text="Evolution") is not None)
+    shot("14_monster_page")
+    scroll(False)
+    scroll(False)
+    shot("15_monster_page_top")
+
+    # 7. Log
+    tab("Log")
+    check("the log lists what happened", find(dump(), contains="What happened") is not None or seek(contains="What happened") is not None)
+    check("pushes are in the log", seek(contains="Pushed to lab") is not None)
+    shot("16_log")
+
+    # 8. Arm the lock
     sh(f"appops set {PKG} GET_USAGE_STATS allow")
     sh(f"appops set {PKG} SYSTEM_ALERT_WINDOW allow")
     open_settings()
@@ -290,7 +406,6 @@ def main():
     nodes = dump()
     items = [n for n in nodes if n["cls"] == "android.widget.CheckedTextView"]
     check("app picker lists apps", len(items) > 0, [n["text"] for n in items][:12])
-    shot("05_app_picker")
     if items and not any(n["checked"] for n in items):
         tap(items[0])
     save = find(dump(), text="Save")
@@ -306,116 +421,136 @@ def main():
     run, fg = service_running()
     check("guard service is running in the foreground", run and fg, f"running={run} foreground={fg}")
     seek(id="sw_lock")
-    shot("06_setup_lock_armed")
+    shot("17_setup_lock_armed")
 
-    # 5. Starve the pet into a monster with the test lab
-    for _ in range(2):
-        seek_tap("skip 1 day", id="btn_skip24")
+    # 9. Restless, then feral
+    lab("btn_skip24")
     home()
-    check("pet turns monster after two skipped days", state_is("monster"), text_of("main_state"))
-    shot("07_home_monster")
-    # Let the automatic sync on opening the home screen finish. It must not feed the pet again.
+    check("a day without shipping makes the horde restless", state_is("restless"), desc_of("state "))
+    shot("18_den_restless")
+    open_settings()
+    lab("btn_skip24")
+    home()
+    check("two days without shipping make it feral", state_is("feral"), desc_of("state "))
+    check("going feral resets the streak", num("streak ") == 0, num("streak "))
+    shot("19_den_feral")
     time.sleep(8)
-    note("sync message while monster", text_of("main_message"))
-    check("a sync that cannot reach GitHub leaves the monster a monster", state_is("monster"), text_of("main_state"))
+    check("a sync that cannot reach GitHub leaves the horde feral", state_is("feral"), desc_of("state "))
 
-    # 6. Open a locked app: the overlay must appear
+    # 10. The lock
     target = blocked[0] if blocked else None
     if target:
-        # Keep the locked app's own first-run prompts out of the way.
         sh(f"pm grant {target} android.permission.POST_NOTIFICATIONS")
         sh("input keyevent 3")
         time.sleep(1)
         sh(f"monkey -p {target} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1")
         lock_text = wait_for(lambda: text_of("lock_text"), 15)
-        check("lock screen covers the locked app", lock_text is not None and "is closed" in lock_text, lock_text)
+        check("lock screen covers the locked app", lock_text is not None and "No ship in" in lock_text, lock_text)
         note("lock countdown", text_of("lock_count"))
-        shot("08_lock_overlay")
+        shot("20_lock_overlay")
 
-        # check now: no new ship, so it must stay locked and say so
         n = find(dump(), id="lock_check")
         if n:
             tap(n)
             lock_note = wait_for(lambda: (lambda t: t if t and "Checking" not in t else None)(text_of("lock_note")), 30)
             check("check-now says it is offline and stays locked", bool(lock_note) and "No connection" in lock_note and text_of("lock_text") is not None, lock_note)
 
-        # back to home hides it
         n = find(dump(), id="lock_home")
         if n:
             tap(n)
         time.sleep(3)
         check("back-to-home removes the lock screen", text_of("lock_text") is None)
-        shot("09_after_back_home")
 
-        # unlocked apps stay usable while the pet is a monster
         sh("am start -a android.settings.SETTINGS >/dev/null 2>&1")
         time.sleep(4)
         check("an app that is not on the list stays open", text_of("lock_text") is None)
         sh("input keyevent 3")
         time.sleep(1)
 
-        # reopening the locked app locks again, then mercy unlock
         sh(f"monkey -p {target} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1")
         again = wait_for(lambda: text_of("lock_text"), 15)
         check("reopening the locked app locks it again", again is not None)
-        if again is None:
-            shot("10a_relock_missing")
-            note("app log at relock failure", app_log().strip().splitlines()[-12:])
+
+        # a truce costs a gem and opens the app
+        n = find(dump(), id="lock_truce")
+        check("the lock screen offers a truce", n is not None and "1 gem" in n["text"], n["text"] if n else None)
+        if n:
+            tap(n)
+        time.sleep(3)
+        check("a truce removes the lock screen", text_of("lock_text") is None)
+        front = sh("dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'").strip()
+        check("the app that was locked is usable during a truce", target in front, front[-90:])
+        home()
+        check("the den shows the truce", seek(contains="Truce: apps open") is not None)
+        shot("21_den_truce")
+
+        # a day later the truce is over: locked again, no second truce, surrender needs two taps
+        open_settings()
+        lab("btn_skip24")
+        sh("input keyevent 3")
+        time.sleep(2)
+        sh(f"monkey -p {target} -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1")
+        third = wait_for(lambda: text_of("lock_text"), 20)
+        check("the lock returns when the truce ends", third is not None)
+        check("only one truce per feral spell", find(dump(), id="lock_truce") is None)
         n = find(dump(), id="lock_mercy")
         if n:
-            # One tap only arms it. Left alone, it must disarm and stay locked.
             tap(n)
             armed = text_of("lock_mercy")
-            check("mercy unlock asks for a second tap", armed is not None and "Tap again" in armed, armed)
-            shot("10_mercy_armed")
+            check("surrender asks for a second tap", armed is not None and "Tap again" in armed, armed)
+            shot("22_surrender_armed")
             time.sleep(6)
             calm = text_of("lock_mercy")
-            check("a single tap does not unlock", calm == "Mercy unlock" and text_of("lock_text") is not None, calm)
-            # Two taps in a row confirm it.
+            check("a single tap does not surrender", calm == "Surrender" and text_of("lock_text") is not None, calm)
             tap(n)
             tap(n)
         time.sleep(3)
-        check("mercy unlock removes the lock screen", text_of("lock_text") is None)
-        front = sh("dumpsys activity activities | grep -m1 -E 'topResumedActivity|mResumedActivity'").strip()
-        check("the app that was locked is now usable", target in front, front[-90:])
+        check("surrender removes the lock screen", text_of("lock_text") is None)
     else:
         check("a locked app was available to test", False)
 
-    # 7. Death, graveyard, notifications
-    home()
-    name = text_of("main_name")
-    check("pet is dead after mercy unlock", (name or "").startswith("R.I.P."), name)
-    grave = seek(contains="Mercy-unlocked so its owner could scroll")
-    check("graveyard shows the epitaph", grave is not None)
-    shot("11_home_dead")
+    # 11. The fall, and what is left
+    tab("Log") if home() is None else None
+    check("the fall is in the hall of fame", seek(contains="The horde fell. Led by") is not None)
+    shot("23_log_hall")
     titles = sorted(set(re.findall(r"android\.title=String \(([^)]*)\)", sh("dumpsys notification --noredact"))))
     note("notification titles", titles)
-    check("monster and death were announced", any("monster" in t for t in titles) or any("died" in t for t in titles), titles)
-
-    # 8. Share image
-    seek_tap("share", id="btn_share")
-    time.sleep(3)
-    shot("12_share_sheet")
-    png = adb("exec-out", "run-as", PKG, "cat", f"/data/data/{PKG}/cache/share/ship-monster.png", binary=True)
-    ok = png[:4] == b"\x89PNG"
-    check("share image was written", ok, f"{len(png)} bytes")
-    if ok:
-        p = os.path.join(OUT, "13_share_card.png")
-        with open(p, "wb") as f:
-            f.write(png)
-        shots.append(("13_share_card", p))
-    sh("input keyevent 4")
-    time.sleep(1)
-
-    # 9. New egg
+    check("restless and feral were announced", any("restless" in t for t in titles) and any("feral" in t for t in titles), titles)
     home()
-    seek_tap("hatch", id="btn_hatch")
-    check("hatching gives a new egg", "still an egg" in (text_of("main_name") or ""), text_of("main_name"))
+    if seek(contains="The horde fell. Start again.") is not None:
+        shot("24_den_fallen")
+        seek_tap("starter", desc="starter Mossback")
+        seek_tap("start", text="Start with Mossback")
+        open_settings()
+        lab("btn_commit")
+        home()
+    else:
+        note("after the fall", "a den monster stepped up to lead")
+    party = desc_of("den ")
+    check("the game goes on after a fall", party is not None and party.startswith("calm:") and len(party) > 8, party)
+    shot("25_den_after_fall")
+    tab("Horde")
+    shot("26_horde_after_fall")
 
-    # 10. Widget through the launcher's pin request
-    if seek_tap("add widget", text="Add the home screen widget"):
+    # 12. Share image
+    if seek_tap("monster tile", desc_starts="open "):
+        seek_tap("share", text="Share")
+        time.sleep(3)
+        png = adb("exec-out", "run-as", PKG, "cat", f"/data/data/{PKG}/cache/share/ship-monster.png", binary=True)
+        ok = png[:4] == b"\x89PNG"
+        check("share image was written", ok, f"{len(png)} bytes")
+        if ok:
+            p = os.path.join(OUT, "26_share_card.png")
+            with open(p, "wb") as f:
+                f.write(png)
+            shots.append(("27_share_card", p))
+        sh("input keyevent 4")
+        time.sleep(1)
+
+    # 13. Widget through the launcher's pin request
+    home()
+    if seek_tap("add widget", text="Add the widget"):
         time.sleep(2)
-        shot("14_widget_pin_dialog")
         nodes = dump()
         btn = find(nodes, contains="Add to home") or find(nodes, contains="Add automatically") or find(nodes, text="Add")
         if btn:
@@ -423,20 +558,23 @@ def main():
         time.sleep(2)
         sh("input keyevent 3")
         time.sleep(2)
-        shot("15_launcher_with_widget")
+        shot("28_launcher_with_widget")
         bound = PKG in sh("dumpsys appwidget")
-        w = find(dump(), id="pet_name")
-        check("widget is on the home screen", bound and w is not None, f"bound={bound} text={w['text'] if w else None}")
+        w = find(dump(), id="pet_say")
+        check("widget is on the home screen and the monster speaks", bound and w is not None and len(w["text"]) > 3, f"bound={bound} text={w['text'] if w else None}")
 
-    # 11. Crashes so far
+    # 14. The saved game is sane
+    state = game_prefs()
+    check("the game is saved", '"monsters"' in state and '"hall"' in state, state[:300])
+
+    # 15. Crashes so far
     c = crashes()
     check("no crashes", not c, c[-1500:])
 
-    # 12. Reboot: sync job and guard must come back on their own
+    # 16. Reboot: sync job and guard must come back on their own
     note("app log before reboot", app_log().strip().splitlines()[-14:])
     sh("cmd connectivity airplane-mode disable")
     sh("cmd appops write-settings")
-    note("lock settings before reboot", re.findall(r'name="(lock_enabled)" value="(\w+)"', prefs("settings")))
     adb("reboot")
     time.sleep(10)
     adb("wait-for-device", timeout=240)
@@ -444,8 +582,6 @@ def main():
     ok = wait_for(lambda: all(service_running()), 150, 5)
     run, fg = service_running()
     check("guard service restarts after a reboot", run and fg, f"running={run} foreground={fg}")
-    note("usage access after reboot", sh(f"appops get {PKG} GET_USAGE_STATS").strip())
-    note("overlay permission after reboot", sh(f"appops get {PKG} SYSTEM_ALERT_WINDOW").strip())
     note("app log after reboot", app_log().strip().splitlines()[-8:])
     job = sh(f"dumpsys jobscheduler | grep -c {PKG}/.SyncJobService").strip()
     check("background sync job survives a reboot", job.isdigit() and int(job) > 0, job)
